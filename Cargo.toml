@@ -1,0 +1,58 @@
+[package]
+name = "bird-view"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bdk_wallet = { version = "1.2.0", features = ["keys-bip39"] }
+eyre = "0.6.12"
+
+directories = "5"
+tempfile = "3"
+reqwest = { version = "0.12.15", features = ['blocking', 'json']}
+serde = "1.0.219"
+serde_json = "1.0.140"
+
+
+bevy = { version = "0.15.3", features = ["bevy_render", "bevy_gizmos", "dynamic_linking"] }
+rand = "0.9.0"
+rand_chacha = "0.9.0"
+
+# Disable detailed log levels on compile time so that they do not need to be filtered out while your app is running.
+log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable more optimization in the release profile at the cost of compile time.
+[profile.release]
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
+lto = "thin"
+
+# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
+[profile.wasm-release]
+# Default to release profile values.
+inherits = "release"
+# Optimize with size in mind (also try "z", sometimes it is better).
+# Slightly slows compile times, great improvements to file size and runtime performance.
+opt-level = "s"
+# Strip all debugging information from the binary to slightly reduce file size.
+strip = "debuginfo"
+
+# for Linux
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+# for Windows
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
