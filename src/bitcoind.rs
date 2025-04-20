@@ -1,19 +1,72 @@
 use crate::bdk_zone::launch_bitcoind_process;
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::OnDrop};
 use std::{io::ErrorKind, process::Child};
 
 pub struct BitcoindHandler;
 
 impl Plugin for BitcoindHandler {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, insert_bitcoind)
-            .add_systems(PostUpdate, cleanup_bitcoind);
+        app.add_systems(Startup, insert_bitcoind);
     }
 }
 
 #[derive(Resource)]
 struct BitcoindProcess {
     child: Child,
+}
+
+impl Drop for BitcoindProcess {
+    fn drop(&mut self) {
+        match self.child.try_wait() {
+            Ok(Some(status)) => {
+                log_or_print(
+                    &format!("Bitcoind already exited with status: {}", status),
+                    log::Level::Info,
+                );
+            }
+            Ok(None) => {
+                info!(")Bitcoind still running; sending kill signal...");
+                match self.child.kill() {
+                    Ok(()) => (),
+                    Err(e) if e.kind() == ErrorKind::InvalidInput => {
+                        log_or_print(
+                            "Bitcoind process already terminated before kill.",
+                            log::Level::Info,
+                        );
+                    }
+                    Err(e) => {
+                        error!("Failed to kill bitcoind: {}", e);
+                        return;
+                    }
+                }
+
+                match self.child.wait() {
+                    Ok(status) => log_or_print(
+                        &format!("Bitcoind exited after kill with status: {}", status),
+                        log::Level::Info,
+                    ),
+                    Err(e) => log_or_print(
+                        &format!("Failed to wait for bitcoind after kill: {}", e),
+                        log::Level::Warn,
+                    ),
+                }
+            }
+            Err(e) => {
+                log_or_print(
+                    &format!("Failed to query bitcoind process status: {}", e),
+                    log::Level::Error,
+                );
+            }
+        }
+    }
+}
+
+fn log_or_print(msg: &str, level: log::Level) {
+    if log::log_enabled!(level) {
+        log::log!(level, "{}", msg)
+    } else {
+        println!("{}", msg);
+    }
 }
 
 fn insert_bitcoind(mut commands: Commands) {
@@ -23,46 +76,5 @@ fn insert_bitcoind(mut commands: Commands) {
         commands.insert_resource(bitcoind_process);
     } else {
         warn!("Could not insert the BitcoindProcess Resource")
-    }
-}
-
-fn cleanup_bitcoind(
-    exit_events: EventReader<AppExit>,
-    mut maybe_bitcoind: Option<NonSendMut<BitcoindProcess>>,
-) {
-    if exit_events.is_empty() {
-        return;
-    }
-
-    let Some(bitcoind) = &mut maybe_bitcoind else {
-        warn!("BitcoindProcess not found during cleanup.");
-        return;
-    };
-
-    match bitcoind.child.try_wait() {
-        Ok(Some(status)) => {
-            info!("Bitcoind already exited with status: {}", status);
-        }
-        Ok(None) => {
-            info!("Bitcoind still running; sending kill signal...");
-            match bitcoind.child.kill() {
-                Ok(()) => (),
-                Err(e) if e.kind() == ErrorKind::InvalidInput => {
-                    info!("Bitcoind process already terminated before kill.");
-                }
-                Err(e) => {
-                    error!("Failed to kill bitcoind: {}", e);
-                    return;
-                }
-            }
-
-            match bitcoind.child.wait() {
-                Ok(status) => info!("Bitcoind exited after kill with status: {}", status),
-                Err(e) => error!("Failed to wait for bitcoind after kill: {}", e),
-            }
-        }
-        Err(e) => {
-            error!("Failed to query bitcoind process status: {}", e);
-        }
     }
 }
