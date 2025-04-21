@@ -1,66 +1,24 @@
-use bdk_wallet::bitcoin::ScriptBuf;
 use bevy::prelude::*;
+use bip39::Mnemonic;
+use bitcoin::bip32::{DerivationPath, Xpriv};
+use bitcoin::ScriptBuf;
+use bitcoin::{
+    hex::DisplayHex,
+    key::Secp256k1,
+    opcodes::all::{OP_CHECKMULTISIG, OP_PUSHNUM_1},
+    Network, Script,
+};
 use directories::ProjectDirs;
+use eyre::{eyre, Result};
 use reqwest::blocking::Client;
-use serde::Deserialize;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, ErrorKind, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
 use std::{thread, time::Duration};
 
-use bdk_wallet::{
-    bitcoin::{
-        bip32::{DerivationPath, Xpriv},
-        hex::DisplayHex,
-        key::Secp256k1,
-        opcodes::all::{OP_CHECKMULTISIG, OP_PUSHNUM_1},
-        Network, Script,
-    },
-    keys::{
-        bip39::{Language, Mnemonic, WordCount},
-        DerivableKey, ExtendedKey, GeneratableKey, GeneratedKey,
-    },
-    miniscript::{Tap, ToPublicKey},
-};
-use eyre::{eyre, Result};
-
-pub fn get_segwit_challenge() -> Result<ScriptBuf> {
-    let xpriv = xprv_from_abandon()?;
-
-    let secp = Secp256k1::new();
-
-    let end_path = DerivationPath::from_str("m/0")?;
-    let partial_path = DerivationPath::from_str("m/86'/0'/0'")?;
-    let full_path_otherway = partial_path.extend(&end_path);
-
-    let first_priv_key = xpriv.derive_priv(&secp, &full_path_otherway)?;
-    let keypair = first_priv_key.to_keypair(&secp);
-    let public_key = keypair.public_key().to_public_key();
-    let segwit_challenge = Script::builder()
-        .push_opcode(OP_PUSHNUM_1)
-        .push_key(&public_key)
-        .push_opcode(OP_PUSHNUM_1)
-        .push_opcode(OP_CHECKMULTISIG)
-        .into_script();
-
-    Ok(segwit_challenge)
-}
-
-fn xprv_from_abandon() -> Result<Xpriv> {
-    let mnemonic = Mnemonic::parse(
-            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
-        )
-        .map_err(|_| eyre!("Mnemonic key parsing error."))?;
-    let xprv: ExtendedKey<Tap> = mnemonic.into_extended_key()?;
-    let xprv = xprv
-        .into_xprv(Network::Signet)
-        .ok_or_else(|| eyre!("No xprv found"))?;
-    Ok(xprv)
-}
-
-pub fn launch_bitcoind_process(descriptor: &str) -> Result<Child> {
+pub fn launch_bitcoind_process() -> Result<Child> {
     let challenge = get_segwit_challenge()?;
     let challenge = format!("{}", challenge.as_bytes().as_hex());
     let bitcoind_path = "bitcoind";
@@ -72,25 +30,60 @@ pub fn launch_bitcoind_process(descriptor: &str) -> Result<Child> {
 
     if !config_path.exists() {
         write_bitcoin_conf(&config_path, &challenge)?;
-        log::info!("Wrote config to {}", config_path.display());
+        info!("Wrote config to {}", config_path.display());
     }
 
     let child = spawn_bitcoind(bitcoind_path, &datadir, &config_path)?;
-    log::info!("bitcoind launched with PID {}", child.id());
-
-    // wait_for_rpc_ready()?;
-
-    // let (rpc_user, rpc_pass) = read_cookie_auth(&datadir)?;
-
-    // // Example: Load descriptor wallet
-    // load_descriptor_wallet("default", descriptor, &rpc_user, &rpc_pass)?;
+    info!("bitcoind launched with PID {}", child.id());
 
     Ok(child)
 }
 
-fn read_cookie_auth(datadir: &Path) -> Result<(String, String)> {
+pub fn load_descriptor(descriptor: &str) -> Result<()> {
+    let datadir = get_data_dir()?.join("bitcoind");
+    let (user, pass) = read_cookie_auth(&datadir)?;
+    info!("user {} pass {}", &user, pass);
+    wait_for_rpc_ready(&user, &pass)?;
+
+    load_descriptor_wallet("default", descriptor, &user, &pass)?;
+    Ok(())
+}
+
+pub fn get_segwit_challenge() -> Result<ScriptBuf> {
+    let master_xpriv = xpriv_key_from_abandon()?;
+
+    let secp = Secp256k1::new();
+
+    // purpose (bip 86) / coin type (1=testnet) / account / change (0=external, 1=internal) / addy index
+    let deriv_path = DerivationPath::from_str("m/86h/1h/0h/0/0")?;
+    let xpriv = master_xpriv.derive_priv(&secp, &deriv_path)?;
+
+    let public_key = xpriv.to_priv().public_key(&secp);
+    let segwit_challenge = Script::builder()
+        .push_opcode(OP_PUSHNUM_1)
+        .push_key(&public_key)
+        .push_opcode(OP_PUSHNUM_1)
+        .push_opcode(OP_CHECKMULTISIG)
+        .into_script();
+
+    Ok(segwit_challenge)
+}
+
+fn xpriv_key_from_abandon() -> Result<Xpriv> {
+    let mnemonic = Mnemonic::parse(
+            "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        )
+        .map_err(|_| eyre!("Mnemonic key parsing error."))?;
+    let seed = mnemonic.to_seed("");
+    let xpriv = Xpriv::new_master(Network::Signet, &seed)?;
+    Ok(xpriv)
+}
+
+pub fn read_cookie_auth(datadir: &Path) -> Result<(String, String)> {
     let subdir = datadir.join("signet");
     let cookie_path = subdir.join(".cookie");
+
+    wait_for_file(&cookie_path, Duration::from_secs(30))?;
 
     let contents = fs::read_to_string(&cookie_path).map_err(|e| {
         eyre!(
@@ -137,17 +130,18 @@ pub fn write_bitcoin_conf(path: &Path, challenge: &str) -> std::io::Result<()> {
     writeln!(file, "txindex=1")?;
     writeln!(file, "fallbackfee=0.0001")?;
     writeln!(file, "signetchallenge={}", challenge)?;
-    writeln!(file, "debug=1")?;
+    //writeln!(file, "debug=1")?;
     Ok(())
 }
 
-fn wait_for_rpc_ready() -> Result<()> {
+fn wait_for_rpc_ready(user: &str, pass: &str) -> Result<()> {
     let client = Client::new();
-    let url = format!("http://127.0.0.1:38332");
+    let url = "http://127.0.0.1:38332";
 
-    for i in 0..30 {
+    for _ in 0..30 {
         let res = client
-            .post(&url)
+            .post(url)
+            .basic_auth(user, Some(pass))
             .json(&serde_json::json!({
                 "jsonrpc": "1.0",
                 "id": "ready",
@@ -158,6 +152,7 @@ fn wait_for_rpc_ready() -> Result<()> {
 
         if let Ok(resp) = res {
             if resp.status().is_success() {
+                info!("wait for rpc: {}", resp.text()?);
                 return Ok(());
             }
         }
@@ -247,4 +242,21 @@ fn spawn_bitcoind(bitcoind_path: &str, data_dir: &Path, conf_path: &Path) -> Res
 
     info!("{bitcoind_path} process started with PID: {}", child.id());
     Ok(child)
+}
+
+fn wait_for_file<P: AsRef<Path>>(path: P, timeout: Duration) -> std::io::Result<()> {
+    let start = std::time::Instant::now();
+
+    while !path.as_ref().exists() {
+        if start.elapsed() > timeout {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Timed out waiting for file",
+            ));
+        }
+
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    Ok(())
 }

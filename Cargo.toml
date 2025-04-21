@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bdk_wallet = { version = "1.2.0", features = ["keys-bip39"] }
+bitcoin = "0.32.5"
+miniscript = "12.3.1"
+bip39 = "2.1.0"
 eyre = "0.6.12"
 
 directories = "5"

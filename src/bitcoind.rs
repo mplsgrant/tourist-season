@@ -1,5 +1,5 @@
-use crate::bdk_zone::launch_bitcoind_process;
-use bevy::{prelude::*, utils::OnDrop};
+use crate::bdk_zone::{launch_bitcoind_process, load_descriptor};
+use bevy::prelude::*;
 use std::{io::ErrorKind, process::Child};
 
 pub struct BitcoindHandler;
@@ -70,8 +70,9 @@ fn log_or_print(msg: &str, level: log::Level) {
 }
 
 fn insert_bitcoind(mut commands: Commands) {
-    let maybe_child = launch_bitcoind_process("put descriptor here");
+    let maybe_child = launch_bitcoind_process();
     if let Ok(child) = maybe_child {
+        load_descriptor("SOME DESCRIPTOR").expect("LOADED!");
         let bitcoind_process = BitcoindProcess { child };
         commands.insert_resource(bitcoind_process);
     } else {
