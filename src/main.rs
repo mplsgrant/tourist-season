@@ -1,9 +1,9 @@
-use bdk_key::BDKButton;
+use bdk_button::BDKButton;
 use bevy::prelude::*;
 use bitcoind::BitcoindHandler;
 
-mod bdk_key;
-pub mod bdk_zone;
+mod bdk_button;
+mod bdk_zone;
 mod bitcoind;
 
 fn main() {

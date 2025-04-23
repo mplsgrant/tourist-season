@@ -1,6 +1,10 @@
 use crate::bdk_zone::{launch_bitcoind_process, load_descriptor};
 use bevy::prelude::*;
-use std::{io::ErrorKind, process::Child};
+use std::{
+    io::ErrorKind,
+    path::PathBuf,
+    process::{Child, Stdio},
+};
 
 pub struct BitcoindHandler;
 
@@ -13,6 +17,8 @@ impl Plugin for BitcoindHandler {
 #[derive(Resource)]
 struct BitcoindProcess {
     child: Child,
+    data_dir: PathBuf,
+    conf_path: PathBuf,
 }
 
 impl Drop for BitcoindProcess {
@@ -25,37 +31,56 @@ impl Drop for BitcoindProcess {
                 );
             }
             Ok(None) => {
-                info!(")Bitcoind still running; sending kill signal...");
-                match self.child.kill() {
-                    Ok(()) => (),
-                    Err(e) if e.kind() == ErrorKind::InvalidInput => {
-                        log_or_print(
-                            "Bitcoind process already terminated before kill.",
-                            log::Level::Info,
-                        );
+                info!("Bitcoind still running; trying `bitcoin-cli -conf=... stop`");
+
+                let cli_result = std::process::Command::new("bitcoin-cli")
+                    .arg(format!("-datadir={}", self.data_dir.display()))
+                    .arg(format!("-conf={}", self.conf_path.display()))
+                    .arg("stop")
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit())
+                    .status();
+
+                match cli_result {
+                    Ok(status) if status.success() => {
+                        info!("Sent `bitcoin-cli stop`; waiting for process to exit...");
+
+                        for _ in 0..10 {
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            if let Ok(Some(status)) = self.child.try_wait() {
+                                log_or_print(
+                                    &format!("Bitcoind exited gracefully with status: {}", status),
+                                    log::Level::Info,
+                                );
+                                return;
+                            }
+                        }
+
+                        warn!("Bitcoind did not exit in time; force killing...");
+                    }
+                    Ok(status) => {
+                        error!("`bitcoin-cli stop` exited with status code: {}", status);
                     }
                     Err(e) => {
-                        error!("Failed to kill bitcoind: {}", e);
-                        return;
+                        error!("Failed to run `bitcoin-cli stop`: {}", e);
                     }
                 }
 
-                match self.child.wait() {
-                    Ok(status) => log_or_print(
+                // Fallback to hard kill
+                if let Err(e) = self.child.kill() {
+                    error!("Failed to force kill bitcoind: {}", e);
+                    return;
+                }
+
+                if let Ok(status) = self.child.wait() {
+                    log_or_print(
                         &format!("Bitcoind exited after kill with status: {}", status),
                         log::Level::Info,
-                    ),
-                    Err(e) => log_or_print(
-                        &format!("Failed to wait for bitcoind after kill: {}", e),
-                        log::Level::Warn,
-                    ),
+                    );
                 }
             }
             Err(e) => {
-                log_or_print(
-                    &format!("Failed to query bitcoind process status: {}", e),
-                    log::Level::Error,
-                );
+                error!("Failed to check bitcoind status: {}", e);
             }
         }
     }
@@ -70,10 +95,14 @@ fn log_or_print(msg: &str, level: log::Level) {
 }
 
 fn insert_bitcoind(mut commands: Commands) {
-    let maybe_child = launch_bitcoind_process();
-    if let Ok(child) = maybe_child {
+    let maybe_child_etal = launch_bitcoind_process();
+    if let Ok((child, data_dir, conf_path)) = maybe_child_etal {
         load_descriptor("SOME DESCRIPTOR").expect("LOADED!");
-        let bitcoind_process = BitcoindProcess { child };
+        let bitcoind_process = BitcoindProcess {
+            child,
+            data_dir,
+            conf_path,
+        };
         commands.insert_resource(bitcoind_process);
     } else {
         warn!("Could not insert the BitcoindProcess Resource")
