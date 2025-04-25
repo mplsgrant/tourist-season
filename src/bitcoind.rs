@@ -1,7 +1,8 @@
-use crate::bdk_zone::{launch_bitcoind_process, load_descriptor};
+use crate::bdk_zone::{
+    launch_bitcoind_process, load_descriptor, xpriv_key_from_abandon, xpriv_to_descriptor,
+};
 use bevy::prelude::*;
 use std::{
-    io::ErrorKind,
     path::PathBuf,
     process::{Child, Stdio},
 };
@@ -96,6 +97,9 @@ fn log_or_print(msg: &str, level: log::Level) {
 
 fn insert_bitcoind(mut commands: Commands) {
     let maybe_child_etal = launch_bitcoind_process();
+    let xpriv = xpriv_key_from_abandon().unwrap();
+    let descriptor = xpriv_to_descriptor(xpriv);
+    info!("LETS TRY insert bitcoind: {}", descriptor);
     if let Ok((child, data_dir, conf_path)) = maybe_child_etal {
         load_descriptor("SOME DESCRIPTOR").expect("LOADED!");
         let bitcoind_process = BitcoindProcess {
