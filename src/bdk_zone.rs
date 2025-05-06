@@ -1,18 +1,18 @@
+use bdk_wallet::Wallet;
 use bevy::prelude::*;
+use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bip39::Mnemonic;
-use bitcoin::bip32::{ChildNumber, DerivationPath, Xpriv};
-use bitcoin::key::UntweakedPublicKey;
 use bitcoin::{
+    Address, CompressedPublicKey, KnownHrp, Network, PrivateKey, Script, ScriptBuf,
+    bip32::{DerivationPath, Xpriv},
     hex::DisplayHex,
-    key::Secp256k1,
+    key::{Secp256k1, UntweakedPublicKey},
     opcodes::all::{OP_CHECKMULTISIG, OP_PUSHNUM_1},
-    Network, Script,
 };
-use bitcoin::{Address, CompressedPublicKey, KnownHrp, PrivateKey, ScriptBuf};
 use directories::ProjectDirs;
-use eyre::{eyre, Result};
-use miniscript::descriptor::{DescriptorSecretKey, DescriptorXKey};
-use miniscript::{Descriptor, Segwitv0};
+use eyre::{Result, eyre};
+use miniscript::descriptor::DescriptorSecretKey;
+use miniscript::descriptor::checksum::desc_checksum;
 use reqwest::blocking::Client;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
@@ -95,6 +95,9 @@ pub fn xpriv_to_descriptor(xpriv: Xpriv) -> String {
     // bitcoin-cli -datadir=$HOME/.local/share/bird-view/bitcoind -conf=$HOME/.config/bird-view/bitcoin.conf -rpcwallet=default getnewaddress "" bech32m
     // -> bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg
 
+    let cs = desc_checksum("tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86h/1h/0h/0/*)").unwrap();
+    info!("CHECKSUM: {cs}");
+
     let xpriv_desc = format!("{}/{}", xpriv, "86h/1h/0h/0/0");
     let desc = DescriptorSecretKey::from_str(&xpriv_desc).unwrap();
     let xkey = match desc {
@@ -123,6 +126,12 @@ pub fn xpriv_to_descriptor(xpriv: Xpriv) -> String {
     );
 
     format!("{}", addy)
+}
+
+pub fn load_wallet() {
+    let data_dir = get_data_dir().unwrap();
+    let mut conn = bdk_wallet::rusqlite::Connection::open(data_dir).unwrap();
+    //    let wallet = Wallet::load().load_wallet(persister);
 }
 
 pub fn read_cookie_auth(datadir: &Path) -> Result<(String, String)> {
@@ -312,6 +321,8 @@ fn wait_for_file<P: AsRef<Path>>(path: P, timeout: Duration) -> std::io::Result<
 
         thread::sleep(Duration::from_millis(100));
     }
+
+    // DELME
 
     Ok(())
 }

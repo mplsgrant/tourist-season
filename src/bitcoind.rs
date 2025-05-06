@@ -27,7 +27,7 @@ impl Drop for BitcoindProcess {
         match self.child.try_wait() {
             Ok(Some(status)) => {
                 log_or_print(
-                    &format!("Bitcoind already exited with status: {}", status),
+                    &format!("Bitcoind already exited with status: {status}"),
                     log::Level::Info,
                 );
             }
