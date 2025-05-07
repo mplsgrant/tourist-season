@@ -9,6 +9,7 @@ mod bdk_button;
 mod bdk_zone;
 mod bitcoind;
 mod borders;
+mod constants;
 mod popup;
 mod tilemaptest;
 

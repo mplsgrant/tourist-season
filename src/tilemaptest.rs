@@ -1,3 +1,5 @@
+use crate::constants::Z_TILEMAP;
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bevy_ecs_tilemap::prelude::*;
@@ -23,21 +25,22 @@ impl Plugin for TileMapTest {
         .add_systems(Startup, startup_original_tiles)
         .add_systems(First, (camera::movement, update_cursor_pos).chain())
         .add_systems(Update, interact_with_tile);
-        //.add_systems(Startup, startup_original_tiles)
-        // .add_systems(Update, update_map);
     }
 }
 
-fn startup_tmx(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
+// fn startup_tmx(mut commands: Commands, asset_server: Res<AssetServer>) {
+//     commands.spawn(Camera2d);
 
-    let map_handle = tiled_thing::TiledMapHandle(asset_server.load("tiled_map_example/map.tmx"));
+//     let map_handle = tiled_thing::TiledMapHandle(asset_server.load("tiled_map_example/map.tmx"));
 
-    commands.spawn(tiled_thing::TiledMapBundle {
-        tiled_map: map_handle,
-        ..Default::default()
-    });
-}
+//     commands.spawn((
+//         tiled_thing::TiledMapBundle {
+//             tiled_map: map_handle,
+//             ..Default::default()
+//         },
+//         GlobalZIndex(Z_TILEMAP),
+//     ));
+// }
 
 #[derive(Component)]
 struct CurrentColor(u16);
@@ -109,24 +112,6 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
     assert!(tile_storage.get(&TilePos { x: 0, y: 0 }).is_some());
     assert_eq!(neighbor_entities.iter().count(), 3); // Only 3 neighbors since negative is outside of map.
 
-    // This changes some of our tiles by looking at neighbors.
-    // let mut color = 0;
-    // for x in (2..128).step_by(4) {
-    //     color += 1;
-    //     for y in (2..128).step_by(4) {
-    //         // Grabbing neighbors is easy.
-
-    //         let neighbors =
-    //             Neighbors::get_square_neighboring_positions(&TilePos { x, y }, &map_size, true);
-    //         for pos in neighbors.iter() {
-    //             // We can replace the tile texture component like so:
-    //             commands
-    //                 .entity(tile_storage.get(pos).unwrap())
-    //                 .insert(TileTextureIndex(color));
-    //         }
-    //     }
-    // }
-
     // This is the size of each individual tiles in pixels.
     let tile_size = TilemapTileSize { x: 16.0, y: 16.0 };
     let grid_size = tile_size.into();
@@ -146,6 +131,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
         },
         LastUpdate(0.0),
         CurrentColor(1),
+        GlobalZIndex(Z_TILEMAP),
     ));
 }
 
