@@ -20,7 +20,7 @@ impl Plugin for TileMapTest {
         .init_resource::<CursorPos>()
         .add_plugins(TilemapPlugin)
         .add_plugins(tiled_thing::TiledMapPlugin)
-        .add_systems(Startup, startup_tmx)
+        .add_systems(Startup, startup_original_tiles)
         .add_systems(First, (camera::movement, update_cursor_pos).chain())
         .add_systems(Update, interact_with_tile);
         //.add_systems(Startup, startup_original_tiles)
@@ -47,6 +47,21 @@ struct LastUpdate(f64);
 
 fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+
+    let image_handles: Vec<Handle<Image>> = vec![
+        asset_server.load("tiles-test/tile_0000.png"),
+        asset_server.load("tiles-test/tile_0012.png"),
+        asset_server.load("tiles-test/tile_0013.png"),
+        asset_server.load("tiles-test/tile_0014.png"),
+        asset_server.load("tiles-test/tile_0024.png"),
+        asset_server.load("tiles-test/tile_0025.png"),
+        asset_server.load("tiles-test/tile_0026.png"),
+        asset_server.load("tiles-test/tile_0036.png"),
+        asset_server.load("tiles-test/tile_0037.png"),
+        asset_server.load("tiles-test/tile_0038.png"),
+    ];
+
+    let textures = TilemapTexture::Vector(image_handles);
 
     let texture_handle: Handle<Image> = asset_server.load("tiles.png");
 
@@ -76,6 +91,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
                 .spawn(TileBundle {
                     position: tile_pos,
                     tilemap_id: TilemapId(tilemap_entity),
+                    texture_index: TileTextureIndex(0),
                     ..Default::default()
                 })
                 .id();
@@ -94,22 +110,22 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
     assert_eq!(neighbor_entities.iter().count(), 3); // Only 3 neighbors since negative is outside of map.
 
     // This changes some of our tiles by looking at neighbors.
-    let mut color = 0;
-    for x in (2..128).step_by(4) {
-        color += 1;
-        for y in (2..128).step_by(4) {
-            // Grabbing neighbors is easy.
+    // let mut color = 0;
+    // for x in (2..128).step_by(4) {
+    //     color += 1;
+    //     for y in (2..128).step_by(4) {
+    //         // Grabbing neighbors is easy.
 
-            let neighbors =
-                Neighbors::get_square_neighboring_positions(&TilePos { x, y }, &map_size, true);
-            for pos in neighbors.iter() {
-                // We can replace the tile texture component like so:
-                commands
-                    .entity(tile_storage.get(pos).unwrap())
-                    .insert(TileTextureIndex(color));
-            }
-        }
-    }
+    //         let neighbors =
+    //             Neighbors::get_square_neighboring_positions(&TilePos { x, y }, &map_size, true);
+    //         for pos in neighbors.iter() {
+    //             // We can replace the tile texture component like so:
+    //             commands
+    //                 .entity(tile_storage.get(pos).unwrap())
+    //                 .insert(TileTextureIndex(color));
+    //         }
+    //     }
+    // }
 
     // This is the size of each individual tiles in pixels.
     let tile_size = TilemapTileSize { x: 16.0, y: 16.0 };
@@ -125,7 +141,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
             map_type,
             texture: TilemapTexture::Single(texture_handle),
             tile_size,
-            transform: get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0),
+            anchor: TilemapAnchor::Center,
             ..Default::default()
         },
         LastUpdate(0.0),
@@ -256,13 +272,17 @@ fn interact_with_tile(
     tilemap_q: Query<(
         &TilemapSize,
         &TilemapGridSize,
+        &TilemapTileSize,
         &TilemapType,
         &TileStorage,
         &Transform,
+        &TilemapAnchor,
     )>,
     mut text_q: Query<&mut TextColor>,
 ) {
-    for (map_size, grid_size, map_type, tile_storage, map_transform) in tilemap_q.iter() {
+    for (map_size, grid_size, tile_size, map_type, tile_storage, map_transform, anchor) in
+        tilemap_q.iter()
+    {
         // Grab the cursor position from the `Res<CursorPos>`
         let cursor_pos: Vec2 = cursor_pos.0;
         // We need to make sure that the cursor's world position is correct relative to the map
@@ -274,9 +294,14 @@ fn interact_with_tile(
             cursor_in_map_pos.xy()
         };
         // Once we have a world position we can transform it into a possible tile position.
-        if let Some(tile_pos) =
-            TilePos::from_world_pos(&cursor_in_map_pos, map_size, grid_size, map_type)
-        {
+        if let Some(tile_pos) = TilePos::from_world_pos(
+            &cursor_in_map_pos,
+            map_size,
+            grid_size,
+            tile_size,
+            map_type,
+            anchor,
+        ) {
             // Highlight the relevant tile's label
             if let Some(tile_entity) = tile_storage.get(&tile_pos) {
                 if mouse_button_input.just_pressed(MouseButton::Left) {
@@ -340,6 +365,7 @@ fn update_map(
 }
 
 mod camera {
+    // https://github.com/StarArawn/bevy_ecs_tilemap/blob/main/examples/helpers/camera.rs
     use bevy::{input::ButtonInput, math::Vec3, prelude::*, render::camera::Camera};
 
     // A simple camera system for moving and zooming the camera.
@@ -347,9 +373,9 @@ mod camera {
     pub fn movement(
         time: Res<Time>,
         keyboard_input: Res<ButtonInput<KeyCode>>,
-        mut query: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+        mut query: Query<(&mut Transform, &mut Projection), With<Camera>>,
     ) {
-        for (mut transform, mut ortho) in query.iter_mut() {
+        for (mut transform, mut projection) in query.iter_mut() {
             let mut direction = Vec3::ZERO;
 
             if keyboard_input.pressed(KeyCode::KeyA) {
@@ -367,6 +393,10 @@ mod camera {
             if keyboard_input.pressed(KeyCode::KeyS) {
                 direction -= Vec3::new(0.0, 1.0, 0.0);
             }
+
+            let Projection::Orthographic(ortho) = &mut *projection else {
+                continue;
+            };
 
             if keyboard_input.pressed(KeyCode::KeyZ) {
                 ortho.scale += 0.1;
@@ -389,254 +419,9 @@ mod camera {
     }
 }
 
-mod ldtk_thing {
-    use bevy_ecs_tilemap::{
-        TilemapBundle,
-        helpers::geometry::get_tilemap_center_transform,
-        map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize},
-        tiles::{TileBundle, TilePos, TileStorage, TileTextureIndex},
-    };
-    use std::{collections::HashMap, io::ErrorKind};
-    use thiserror::Error;
-
-    use bevy::{asset::io::Reader, reflect::TypePath};
-    use bevy::{
-        asset::{AssetLoader, AssetPath, LoadContext},
-        prelude::*,
-    };
-    use bevy_ecs_tilemap::map::TilemapType;
-
-    #[derive(Default)]
-    pub struct LdtkPlugin;
-
-    impl Plugin for LdtkPlugin {
-        fn build(&self, app: &mut App) {
-            app.init_asset::<LdtkMap>()
-                .register_asset_loader(LdtkLoader)
-                .add_systems(Update, process_loaded_tile_maps);
-        }
-    }
-
-    #[derive(TypePath, Asset)]
-    pub struct LdtkMap {
-        pub project: ldtk_rust::Project,
-        pub tilesets: HashMap<i64, Handle<Image>>,
-    }
-
-    #[derive(Default, Component)]
-    pub struct LdtkMapConfig {
-        pub selected_level: usize,
-    }
-
-    #[derive(Default, Component)]
-    pub struct LdtkMapHandle(pub Handle<LdtkMap>);
-
-    #[derive(Default, Bundle)]
-    pub struct LdtkMapBundle {
-        pub ldtk_map: LdtkMapHandle,
-        pub ldtk_map_config: LdtkMapConfig,
-        pub transform: Transform,
-        pub global_transform: GlobalTransform,
-    }
-
-    pub struct LdtkLoader;
-
-    #[derive(Debug, Error)]
-    pub enum LdtkAssetLoaderError {
-        /// An [IO](std::io) Error
-        #[error("Could not load LDTk file: {0}")]
-        Io(#[from] std::io::Error),
-    }
-
-    impl AssetLoader for LdtkLoader {
-        type Asset = LdtkMap;
-        type Settings = ();
-        type Error = LdtkAssetLoaderError;
-
-        async fn load(
-            &self,
-            reader: &mut dyn Reader,
-            _settings: &Self::Settings,
-            load_context: &mut LoadContext<'_>,
-        ) -> Result<Self::Asset, Self::Error> {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-
-            let project: ldtk_rust::Project = serde_json::from_slice(&bytes).map_err(|e| {
-                std::io::Error::new(
-                    ErrorKind::Other,
-                    format!("Could not read contents of Ldtk map: {e}"),
-                )
-            })?;
-            let dependencies: Vec<(i64, AssetPath)> = project
-                .defs
-                .tilesets
-                .iter()
-                .filter_map(|tileset| {
-                    tileset.rel_path.as_ref().map(|rel_path| {
-                        (
-                            tileset.uid,
-                            load_context.path().parent().unwrap().join(rel_path).into(),
-                        )
-                    })
-                })
-                .collect();
-
-            let ldtk_map = LdtkMap {
-                project,
-                tilesets: dependencies
-                    .iter()
-                    .map(|dep| (dep.0, load_context.load(dep.1.clone())))
-                    .collect(),
-            };
-            Ok(ldtk_map)
-        }
-
-        fn extensions(&self) -> &[&str] {
-            static EXTENSIONS: &[&str] = &["ldtk"];
-            EXTENSIONS
-        }
-    }
-
-    pub fn process_loaded_tile_maps(
-        mut commands: Commands,
-        mut map_events: EventReader<AssetEvent<LdtkMap>>,
-        maps: Res<Assets<LdtkMap>>,
-        mut query: Query<(Entity, &LdtkMapHandle, &LdtkMapConfig)>,
-        new_maps: Query<&LdtkMapHandle, Added<LdtkMapHandle>>,
-    ) {
-        let mut changed_maps = Vec::<AssetId<LdtkMap>>::default();
-        for event in map_events.read() {
-            match event {
-                AssetEvent::Added { id } => {
-                    log::info!("Map added!");
-                    changed_maps.push(*id);
-                }
-                AssetEvent::Modified { id } => {
-                    log::info!("Map changed!");
-                    changed_maps.push(*id);
-                }
-                AssetEvent::Removed { id } => {
-                    log::info!("Map removed!");
-                    // if mesh was modified and removed in the same update, ignore the modification
-                    // events are ordered so future modification events are ok
-                    changed_maps.retain(|changed_handle| changed_handle == id);
-                }
-                _ => continue,
-            }
-        }
-
-        // If we have new map entities, add them to the changed_maps list
-        for new_map_handle in new_maps.iter() {
-            changed_maps.push(new_map_handle.0.id());
-        }
-
-        for changed_map in changed_maps.iter() {
-            for (entity, map_handle, map_config) in query.iter_mut() {
-                // only deal with currently changed map
-                if map_handle.0.id() != *changed_map {
-                    continue;
-                }
-                if let Some(ldtk_map) = maps.get(&map_handle.0) {
-                    // Despawn all existing tilemaps for this LdtkMap
-                    commands.entity(entity).despawn_descendants();
-
-                    // Pull out tilesets and their definitions into a new hashmap
-                    let mut tilesets = HashMap::new();
-                    ldtk_map.project.defs.tilesets.iter().for_each(|tileset| {
-                        tilesets.insert(
-                            tileset.uid,
-                            (
-                                ldtk_map.tilesets.get(&tileset.uid).unwrap().clone(),
-                                tileset,
-                            ),
-                        );
-                    });
-
-                    let default_grid_size = ldtk_map.project.default_grid_size;
-                    let level = &ldtk_map.project.levels[map_config.selected_level];
-
-                    let map_tile_count_x = (level.px_wid / default_grid_size) as u32;
-                    let map_tile_count_y = (level.px_hei / default_grid_size) as u32;
-
-                    let size = TilemapSize {
-                        x: map_tile_count_x,
-                        y: map_tile_count_y,
-                    };
-
-                    // We will create a tilemap for each layer in the following loop
-                    for (layer_id, layer) in level
-                        .layer_instances
-                        .as_ref()
-                        .unwrap()
-                        .iter()
-                        .rev()
-                        .enumerate()
-                    {
-                        if let Some(uid) = layer.tileset_def_uid {
-                            let (texture, tileset) = tilesets.get(&uid).unwrap().clone();
-
-                            // Tileset-specific tilemap settings
-                            let tile_size = TilemapTileSize {
-                                x: tileset.tile_grid_size as f32,
-                                y: tileset.tile_grid_size as f32,
-                            };
-
-                            // Pre-emptively create a map entity for tile creation
-                            let map_entity = commands.spawn_empty().id();
-
-                            // Create tiles for this layer from LDtk's grid_tiles and auto_layer_tiles
-                            let mut storage = TileStorage::empty(size);
-
-                            for tile in layer.grid_tiles.iter().chain(layer.auto_layer_tiles.iter())
-                            {
-                                let mut position = TilePos {
-                                    x: (tile.px[0] / default_grid_size) as u32,
-                                    y: (tile.px[1] / default_grid_size) as u32,
-                                };
-
-                                position.y = map_tile_count_y - position.y - 1;
-
-                                let tile_entity = commands
-                                    .spawn(TileBundle {
-                                        position,
-                                        tilemap_id: TilemapId(map_entity),
-                                        texture_index: TileTextureIndex(tile.t as u32),
-                                        ..default()
-                                    })
-                                    .id();
-
-                                storage.set(&position, tile_entity);
-                            }
-
-                            let grid_size = tile_size.into();
-                            let map_type = TilemapType::default();
-
-                            // Create the tilemap
-                            commands.entity(map_entity).insert(TilemapBundle {
-                                grid_size,
-                                map_type,
-                                size,
-                                storage,
-                                texture: TilemapTexture::Single(texture),
-                                tile_size,
-                                transform: get_tilemap_center_transform(
-                                    &size,
-                                    &grid_size,
-                                    &map_type,
-                                    layer_id as f32,
-                                ),
-                                ..default()
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 mod tiled_thing {
+    // https://github.com/StarArawn/bevy_ecs_tilemap/blob/main/examples/helpers/tiled.rs
+
     // How to use this:
     //   You should copy/paste this into your project and use it much like examples/tiles.rs uses this
     //   file. When you do so you will need to adjust the code based on whether you're using the
@@ -655,19 +440,18 @@ mod tiled_thing {
     use std::path::Path;
     use std::sync::Arc;
 
+    use bevy::log::{info, warn};
     use bevy::{
         asset::{AssetLoader, AssetPath, io::Reader},
-        log,
+        platform::collections::HashMap,
         prelude::{
             Added, Asset, AssetApp, AssetEvent, AssetId, Assets, Bundle, Commands, Component,
-            DespawnRecursiveExt, Entity, EventReader, GlobalTransform, Handle, Image, Plugin,
-            Query, Res, Transform, Update,
+            Entity, EventReader, GlobalTransform, Handle, Image, Plugin, Query, Res, Transform,
+            Update,
         },
         reflect::TypePath,
-        utils::HashMap,
     };
     use bevy_ecs_tilemap::prelude::*;
-
     use thiserror::Error;
 
     #[derive(Default)]
@@ -772,7 +556,7 @@ mod tiled_thing {
                     None => {
                         #[cfg(feature = "atlas")]
                         {
-                            log::info!(
+                            info!(
                                 "Skipping image collection tileset '{}' which is incompatible with atlas feature",
                                 tileset.name
                             );
@@ -792,7 +576,7 @@ mod tiled_thing {
                                         .expect("The asset load context was empty.");
                                     let tile_path = tmx_dir.join(&img.source);
                                     let asset_path = AssetPath::from(tile_path);
-                                    log::info!(
+                                    info!(
                                         "Loading tile image from {asset_path:?} as image ({tileset_index}, {tile_id})"
                                     );
                                     let texture: Handle<Image> =
@@ -831,7 +615,7 @@ mod tiled_thing {
                 tile_image_offsets,
             };
 
-            log::info!("Loaded map: {}", load_context.path().display());
+            info!("Loaded map: {}", load_context.path().display());
             Ok(asset_map)
         }
 
@@ -857,15 +641,15 @@ mod tiled_thing {
         for event in map_events.read() {
             match event {
                 AssetEvent::Added { id } => {
-                    log::info!("Map added!");
+                    info!("Map added!");
                     changed_maps.push(*id);
                 }
                 AssetEvent::Modified { id } => {
-                    log::info!("Map changed!");
+                    info!("Map changed!");
                     changed_maps.push(*id);
                 }
                 AssetEvent::Removed { id } => {
-                    log::info!("Map removed!");
+                    info!("Map removed!");
                     // if mesh was modified and removed in the same update, ignore the modification
                     // events are ordered so future modification events are ok
                     changed_maps.retain(|changed_handle| changed_handle == id);
@@ -890,7 +674,7 @@ mod tiled_thing {
                     for layer_entity in layer_storage.storage.values() {
                         if let Ok((_, layer_tile_storage)) = tile_storage_query.get(*layer_entity) {
                             for tile in layer_tile_storage.iter().flatten() {
-                                commands.entity(*tile).despawn_recursive()
+                                commands.entity(*tile).despawn()
                             }
                         }
                         // commands.entity(*layer_entity).despawn_recursive();
@@ -904,7 +688,7 @@ mod tiled_thing {
                     for (tileset_index, tileset) in tiled_map.map.tilesets().iter().enumerate() {
                         let Some(tilemap_texture) = tiled_map.tilemap_textures.get(&tileset_index)
                         else {
-                            log::warn!("Skipped creating layer with missing tilemap textures.");
+                            warn!("Skipped creating layer with missing tilemap textures.");
                             continue;
                         };
 
@@ -924,7 +708,7 @@ mod tiled_thing {
                             let offset_y = layer.offset_y;
 
                             let tiled::LayerType::Tiles(tile_layer) = layer.layer_type() else {
-                                log::info!(
+                                info!(
                                     "Skipping layer {} because only tile layers are supported.",
                                     layer.id()
                                 );
@@ -932,7 +716,7 @@ mod tiled_thing {
                             };
 
                             let tiled::TileLayer::Finite(layer_data) = tile_layer else {
-                                log::info!(
+                                info!(
                                     "Skipping layer {} because only finite layers are supported.",
                                     layer.id()
                                 );
@@ -1025,12 +809,12 @@ mod tiled_thing {
                                 texture: tilemap_texture.clone(),
                                 tile_size,
                                 spacing: tile_spacing,
-                                transform: get_tilemap_center_transform(
-                                    &map_size,
-                                    &grid_size,
-                                    &map_type,
+                                anchor: TilemapAnchor::Center,
+                                transform: Transform::from_xyz(
+                                    offset_x,
+                                    -offset_y,
                                     layer_index as f32,
-                                ) * Transform::from_xyz(offset_x, -offset_y, 0.0),
+                                ),
                                 map_type,
                                 render_settings: *render_settings,
                                 ..Default::default()
