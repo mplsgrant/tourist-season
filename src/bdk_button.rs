@@ -1,4 +1,4 @@
-use crate::bdk_zone::get_segwit_challenge;
+use crate::{bdk_zone::get_segwit_challenge, popup::PopupBase};
 use bevy::{color::palettes::basic::*, prelude::*};
 
 pub struct BDKButton;
@@ -25,16 +25,24 @@ fn button_system(
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
+    mut popup_q: Query<&mut Node, With<PopupBase>>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 let z = get_segwit_challenge();
-                println!("z: {:?}", z);
+                println!("z: {z:?}");
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
+
+                for mut node in &mut popup_q {
+                    node.display = match node.display {
+                        Display::None => Display::Flex,
+                        _ => Display::None,
+                    };
+                }
             }
             Interaction::Hovered => {
                 **text = "Hover".to_string();

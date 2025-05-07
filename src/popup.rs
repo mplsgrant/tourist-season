@@ -1,12 +1,15 @@
 use bevy::{color::palettes::css::*, prelude::*};
 
-pub struct Borders;
+pub struct Popup;
 
-impl Plugin for Borders {
+impl Plugin for Popup {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
     }
 }
+
+#[derive(Component, Clone)]
+pub struct PopupBase;
 
 fn setup(mut commands: Commands) {
     let base_node = (
@@ -21,7 +24,9 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+        PopupBase,
     );
+
     let root = commands.spawn(base_node.clone()).id();
 
     let root_rounded = commands.spawn(base_node).id();
