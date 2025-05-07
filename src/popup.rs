@@ -24,7 +24,6 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-        PopupBase,
     );
 
     let root = commands.spawn(base_node.clone()).id();
@@ -117,6 +116,7 @@ fn setup(mut commands: Commands) {
                     ..default()
                 },
                 BackgroundColor(YELLOW.into()),
+                Button,
             ))
             .id();
         let border_node = commands
@@ -284,6 +284,7 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+            PopupBase,
         ))
         .add_child(border_label)
         .add_child(root)

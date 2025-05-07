@@ -60,13 +60,17 @@ fn button_system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        })
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                align_items: AlignItems::End,
+                justify_content: JustifyContent::Center,
+                column_gap: Val::Percent(1.0),
+                ..default()
+            },
+            GlobalZIndex(4),
+        ))
         .with_children(|parent| {
             parent
                 .spawn((
@@ -84,6 +88,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BorderColor(Color::BLACK),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
+                ))
+                .with_child((
+                    Text::new("Button"),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 33.0,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ));
+            parent
+                .spawn((
+                    Button,
+                    Node {
+                        width: Val::Px(150.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderColor(Color::BLACK),
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                    ZIndex(1),
                 ))
                 .with_child((
                     Text::new("Button"),
