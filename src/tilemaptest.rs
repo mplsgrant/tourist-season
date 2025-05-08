@@ -1,5 +1,4 @@
-use crate::constants::Z_TILEMAP;
-use bevy::math::VectorSpace;
+use crate::constants::{PopupBase, Z_TILEMAP};
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bevy_ecs_tilemap::prelude::*;
@@ -252,7 +251,6 @@ pub fn update_cursor_pos(
 }
 
 fn interact_with_tile(
-    mut commands: Commands,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     cursor_pos: Res<CursorPos>,
     tilemap_q: Query<(
@@ -264,8 +262,15 @@ fn interact_with_tile(
         &Transform,
         &TilemapAnchor,
     )>,
-    mut text_q: Query<&mut TextColor>,
+    popup_q: Query<&Node, With<PopupBase>>,
 ) {
+    let popup_is_visible = popup_q
+        .iter()
+        .any(|node| !matches!(node.display, Display::None));
+    if popup_is_visible {
+        return;
+    }
+
     for (map_size, grid_size, tile_size, map_type, tile_storage, map_transform, anchor) in
         tilemap_q.iter()
     {

@@ -1,4 +1,4 @@
-use crate::{bdk_zone::get_segwit_challenge, popup::PopupBase};
+use crate::{bdk_zone::get_segwit_challenge, constants::PopupBase};
 use bevy::{color::palettes::basic::*, prelude::*};
 
 pub struct BDKButton;
