@@ -1,4 +1,4 @@
-use crate::{bdk_zone::get_segwit_challenge, constants::PopupBase};
+use crate::{bdk_zone::get_segwit_challenge, constants::PopupBase, popup::PickedItem};
 use bevy::{color::palettes::basic::*, prelude::*};
 
 pub struct BDKButton;
@@ -15,6 +15,7 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
+    mut commands: Commands,
     mut interaction_query: Query<
         (
             &Interaction,
@@ -26,22 +27,31 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
     mut popup_q: Query<&mut Node, With<PopupBase>>,
+    mut picked_q: Query<(Entity, &PickedItem)>,
 ) {
     for (interaction, mut color, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
+                // Despawn any PickedItem
+                for (entity, _) in picked_q.iter_mut() {
+                    commands.entity(entity).despawn();
+                    info!("Despawned: {entity:?}");
+                }
+
                 let z = get_segwit_challenge();
                 println!("z: {z:?}");
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
 
+                // Toggle PopupBase
                 for mut node in &mut popup_q {
                     node.display = match node.display {
                         Display::None => Display::Flex,
                         _ => Display::None,
                     };
+                    info!("Toggled PopupBase");
                 }
             }
             Interaction::Hovered => {

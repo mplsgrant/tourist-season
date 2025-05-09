@@ -1,13 +1,14 @@
-use bevy::{color::palettes::basic::*, prelude::*};
+#![allow(clippy::type_complexity)]
 
-use crate::constants::PopupBase;
+use crate::{constants::PopupBase, tilemaptest::CursorPos};
+use bevy::{color::palettes::basic::*, prelude::*};
 
 pub struct Popup;
 
 impl Plugin for Popup {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, button_system);
+            .add_systems(Update, (button_system, pick_and_place));
     }
 }
 
@@ -113,17 +114,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_child(root);
 }
 
+#[derive(Component)]
+pub struct PickedItem;
+
 fn button_system(
+    mut commands: Commands,
     mut interaction_query: Query<
         (&Interaction, &mut Outline),
         (Changed<Interaction>, With<Button>),
     >,
+    asset_server: Res<AssetServer>,
+    mut popup_q: Query<&mut Node, With<PopupBase>>,
 ) {
     for (interaction, mut outline) in &mut interaction_query {
-        info!("HELLO");
         match *interaction {
             Interaction::Pressed => {
                 outline.color = RED.into();
+                let picked_item = commands
+                    .spawn((
+                        Sprite::from_image(asset_server.load("tiles-test/tile_0038.png")),
+                        PickedItem,
+                        Transform::from_xyz(50., 50., 1.),
+                        GlobalZIndex(5),
+                    ))
+                    .id();
+                info!("{picked_item:?}");
+
+                // Disappear the popup
+                for mut node in &mut popup_q {
+                    node.display = match node.display {
+                        Display::None => Display::Flex,
+                        _ => Display::None,
+                    };
+                }
             }
             Interaction::Hovered => {
                 outline.color = Color::WHITE;
@@ -132,5 +155,16 @@ fn button_system(
                 outline.color = Color::BLACK;
             }
         }
+    }
+}
+
+fn pick_and_place(
+    mut picked_q: Query<&mut Transform, With<PickedItem>>,
+    cursor_pos: Res<CursorPos>,
+) {
+    // Make the PickedItem follow the the mouse
+    if let Ok(mut transform) = picked_q.single_mut() {
+        transform.translation.x = cursor_pos.0.x;
+        transform.translation.y = cursor_pos.0.y;
     }
 }

@@ -19,10 +19,14 @@ impl Plugin for TileMapTest {
                 .set(ImagePlugin::default_nearest()),
         )
         .init_resource::<CursorPos>()
+        .init_resource::<CurTilePos>()
         .add_plugins(TilemapPlugin)
         .add_plugins(tiled_thing::TiledMapPlugin)
         .add_systems(Startup, startup_original_tiles)
-        .add_systems(First, (camera::movement, update_cursor_pos).chain())
+        .add_systems(
+            First,
+            (camera::movement, update_cursor_pos, update_cur_tile_pos).chain(),
+        )
         .add_systems(Update, interact_with_tile);
     }
 }
@@ -221,8 +225,54 @@ fn startup_rpg_urban_pack_tiles(mut commands: Commands, asset_server: Res<AssetS
     ));
 }
 
+/// TODO: Move this to its own mod
 #[derive(Resource)]
-pub struct CursorPos(Vec2);
+pub struct CurTilePos(pub Option<TilePos>);
+
+impl Default for CurTilePos {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+fn update_cur_tile_pos(
+    cursor_pos: Res<CursorPos>,
+    tilemap_q: Query<(
+        &TilemapSize,
+        &TilemapGridSize,
+        &TilemapTileSize,
+        &TilemapType,
+        &Transform,
+        &TilemapAnchor,
+    )>,
+    mut cur_tile_pos: ResMut<CurTilePos>,
+) {
+    for (map_size, grid_size, tile_size, map_type, map_transform, anchor) in tilemap_q.iter() {
+        // Grab the cursor position from the `Res<CursorPos>`
+        let cursor_pos: Vec2 = cursor_pos.0;
+        // We need to make sure that the cursor's world position is correct relative to the map
+        // due to any map transformation.
+        let cursor_in_map_pos: Vec2 = {
+            // Extend the cursor_pos vec3 by 0.0 and 1.0
+            let cursor_pos = Vec4::from((cursor_pos, 0.0, 1.0));
+            let cursor_in_map_pos = map_transform.compute_matrix().inverse() * cursor_pos;
+            cursor_in_map_pos.xy()
+        };
+        // Once we have a world position we can transform it into a possible tile position.
+        cur_tile_pos.0 = TilePos::from_world_pos(
+            &cursor_in_map_pos,
+            map_size,
+            grid_size,
+            tile_size,
+            map_type,
+            anchor,
+        );
+    }
+}
+
+/// TODO: Move this to its own mod
+#[derive(Resource)]
+pub struct CursorPos(pub Vec2);
 
 impl Default for CursorPos {
     fn default() -> Self {
@@ -252,16 +302,8 @@ pub fn update_cursor_pos(
 
 fn interact_with_tile(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    cursor_pos: Res<CursorPos>,
-    tilemap_q: Query<(
-        &TilemapSize,
-        &TilemapGridSize,
-        &TilemapTileSize,
-        &TilemapType,
-        &TileStorage,
-        &Transform,
-        &TilemapAnchor,
-    )>,
+    cur_tile_pos: Res<CurTilePos>,
+    tilemap_q: Query<&TileStorage>,
     popup_q: Query<&Node, With<PopupBase>>,
 ) {
     let popup_is_visible = popup_q
@@ -271,35 +313,13 @@ fn interact_with_tile(
         return;
     }
 
-    for (map_size, grid_size, tile_size, map_type, tile_storage, map_transform, anchor) in
-        tilemap_q.iter()
-    {
-        // Grab the cursor position from the `Res<CursorPos>`
-        let cursor_pos: Vec2 = cursor_pos.0;
-        // We need to make sure that the cursor's world position is correct relative to the map
-        // due to any map transformation.
-        let cursor_in_map_pos: Vec2 = {
-            // Extend the cursor_pos vec3 by 0.0 and 1.0
-            let cursor_pos = Vec4::from((cursor_pos, 0.0, 1.0));
-            let cursor_in_map_pos = map_transform.compute_matrix().inverse() * cursor_pos;
-            cursor_in_map_pos.xy()
-        };
-        // Once we have a world position we can transform it into a possible tile position.
-        if let Some(tile_pos) = TilePos::from_world_pos(
-            &cursor_in_map_pos,
-            map_size,
-            grid_size,
-            tile_size,
-            map_type,
-            anchor,
-        ) {
-            // Highlight the relevant tile's label
+    // Once we have a world position we can transform it into a possible tile position.
+    if let Some(tile_pos) = cur_tile_pos.0 {
+        // Highlight the relevant tile's label
+        if let Ok(tile_storage) = tilemap_q.single() {
             if let Some(tile_entity) = tile_storage.get(&tile_pos) {
                 if mouse_button_input.just_pressed(MouseButton::Left) {
-                    info!(
-                        "MY TILE: {tile_entity} {cursor_pos} {cursor_in_map_pos} {} {}",
-                        tile_pos.x, tile_pos.y
-                    );
+                    info!("MY TILE: {tile_entity} {} {}", tile_pos.x, tile_pos.y);
                 }
             }
         }
