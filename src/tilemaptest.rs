@@ -174,14 +174,8 @@ fn save_tilemap(
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct CurTilePos(pub Option<TilePos>);
-
-impl Default for CurTilePos {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
 
 fn update_cur_tile_pos(
     cursor_pos: Res<CursorPos>,
