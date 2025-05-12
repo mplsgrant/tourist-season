@@ -2,18 +2,18 @@ use crate::bdk_zone::get_data_dir;
 use crate::constants::{
     DIRT, GRASS_BORDER_LEFT, GRASS_BORDER_LOWER, GRASS_BORDER_LOWER_LEFT, GRASS_BORDER_LOWER_RIGHT,
     GRASS_BORDER_RIGHT, GRASS_BORDER_UPPER, GRASS_BORDER_UPPER_LEFT_PATH, GRASS_BORDER_UPPER_RIGHT,
-    GRASS_IDX, GRASS_PATH, MAP_DIR, PopupBase, Z_TILEMAP,
+    GRASS_IDX, GRASS_PATH, MAP_DIR, MAP_JSON, PopupBase, Z_TILEMAP,
 };
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bevy_ecs_tilemap::prelude::*;
 use std::fs;
 
-pub struct TileMapTest;
+pub struct GameMap;
 
-impl Plugin for TileMapTest {
+impl Plugin for GameMap {
     fn build(&self, app: &mut App) {
-        app.add_event::<TileMapEvent>()
+        app.add_event::<GameMapEvent>()
             .add_plugins(
                 DefaultPlugins
                     .set(WindowPlugin {
@@ -40,23 +40,9 @@ impl Plugin for TileMapTest {
 }
 
 #[derive(Event)]
-pub enum TileMapEvent {
+pub enum GameMapEvent {
     Save,
 }
-
-// fn startup_tmx(mut commands: Commands, asset_server: Res<AssetServer>) {
-//     commands.spawn(Camera2d);
-
-//     let map_handle = tiled_thing::TiledMapHandle(asset_server.load("tiled_map_example/map.tmx"));
-
-//     commands.spawn((
-//         tiled_thing::TiledMapBundle {
-//             tiled_map: map_handle,
-//             ..Default::default()
-//         },
-//         GlobalZIndex(Z_TILEMAP),
-//     ));
-// }
 
 fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
@@ -95,9 +81,10 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
     let tilemap_entity = commands.spawn_empty().id();
 
     // Load map
-    let map_dir = get_data_dir(Some(MAP_DIR.into())).unwrap();
-    let map_file = map_dir.join("map.json");
-    let map: Vec<(TilePos, TileTextureIndex)> = if let Ok(map) = fs::read_to_string(&map_file) {
+    let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
+
+    let map: Vec<(TilePos, TileTextureIndex)> = if let Ok(map) = fs::read_to_string(&map_json_file)
+    {
         serde_json::from_str(&map).unwrap()
     } else {
         // Make a map out of whole cloth
@@ -157,18 +144,17 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
 }
 
 fn save_tilemap(
-    mut tilemap_e: EventReader<TileMapEvent>,
+    mut tilemap_e: EventReader<GameMapEvent>,
     tilemap_q: Query<(&TilePos, &TileTextureIndex)>,
 ) {
     for tilemap_event in tilemap_e.read() {
         match tilemap_event {
-            TileMapEvent::Save => {
+            GameMapEvent::Save => {
                 let items: Vec<(TilePos, TileTextureIndex)> =
                     tilemap_q.iter().map(|(pos, idx)| (*pos, *idx)).collect();
                 let json_items = serde_json::to_string(&items).unwrap();
-
-                let z = get_data_dir(Some(MAP_DIR.into())).unwrap().join("map.json");
-                fs::write(z, json_items).unwrap();
+                let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
+                fs::write(map_json_file, json_items).unwrap();
             }
         }
     }

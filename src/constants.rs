@@ -6,6 +6,7 @@ pub const Z_TILEMAP: i32 = 0;
 
 pub const BITCOIN_DIR: &str = "bitcoind";
 pub const MAP_DIR: &str = "map";
+pub const MAP_JSON: &str = "map.json";
 
 /// Marks an entity as being a Popup.
 /// Current use: tilemap interactions query to see if the node with this marker is displayed and if it is displayed, the system disables tilemap interaction.

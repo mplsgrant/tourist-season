@@ -2,7 +2,7 @@
 
 use crate::{
     bdk_zone::get_segwit_challenge, constants::PopupBase, popup::PickedItem,
-    tilemaptest::TileMapEvent,
+    tilemaptest::GameMapEvent,
 };
 use bevy::{color::palettes::basic::*, prelude::*};
 
@@ -40,7 +40,7 @@ fn button_system(
     mut text_query: Query<&mut Text>,
     mut popup_q: Query<&mut Node, With<PopupBase>>,
     mut picked_q: Query<(Entity, &PickedItem)>,
-    mut tilemap_e: EventWriter<TileMapEvent>,
+    mut tilemap_e: EventWriter<GameMapEvent>,
 ) {
     for (interaction, mut color, mut border_color, children, button_action) in
         &mut interaction_query
@@ -48,7 +48,7 @@ fn button_system(
         match button_action {
             ButtonAction::Save => match *interaction {
                 Interaction::Pressed => {
-                    let _ = tilemap_e.write(TileMapEvent::Save);
+                    let _ = tilemap_e.write(GameMapEvent::Save);
                 }
                 Interaction::Hovered => {
                     *color = HOVERED_BUTTON.into();

@@ -2,7 +2,7 @@ use bdk_button::BDKButton;
 use bevy::prelude::*;
 use bitcoind::BitcoindHandler;
 use popup::Popup;
-use tilemaptest::TileMapTest;
+use tilemaptest::GameMap;
 
 mod bdk_button;
 mod bdk_zone;
@@ -14,7 +14,7 @@ mod tilemaptest;
 
 fn main() {
     App::new()
-        .add_plugins(TileMapTest)
+        .add_plugins(GameMap)
         .add_plugins(BDKButton)
         .add_plugins(BitcoindHandler)
         .add_plugins(Popup)
