@@ -4,9 +4,11 @@ use crate::constants::{
     GRASS_BORDER_RIGHT, GRASS_BORDER_UPPER, GRASS_BORDER_UPPER_LEFT_PATH, GRASS_BORDER_UPPER_RIGHT,
     GRASS_IDX, GRASS_PATH, MAP_DIR, MAP_JSON, PopupBase, Z_TILEMAP,
 };
+use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bevy_ecs_tilemap::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::fs;
 
 pub struct GameMap;
@@ -42,6 +44,18 @@ impl Plugin for GameMap {
 #[derive(Event)]
 pub enum GameMapEvent {
     Save,
+}
+
+#[derive(Component, Clone, Default, Serialize, Deserialize)]
+pub struct TileBuddies {
+    pub buddies: Option<HashSet<TilePos>>,
+}
+
+#[derive(Component, Default, Serialize, Deserialize)]
+pub struct TileValues {
+    pos: TilePos,
+    texture_index: TileTextureIndex,
+    buddies: TileBuddies,
 }
 
 fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -83,15 +97,19 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
     // Load map
     let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
 
-    let map: Vec<(TilePos, TileTextureIndex)> = if let Ok(map) = fs::read_to_string(&map_json_file)
-    {
+    let map: Vec<TileValues> = if let Ok(map) = fs::read_to_string(&map_json_file) {
         serde_json::from_str(&map).unwrap()
     } else {
         // Make a map out of whole cloth
         let mut map = vec![];
         for x in 0..map_size.x {
             for y in 0..map_size.y {
-                let value = (TilePos { x, y }, TileTextureIndex(GRASS_IDX));
+                let value = TileValues {
+                    pos: TilePos { x, y },
+                    texture_index: TileTextureIndex(GRASS_IDX),
+                    buddies: TileBuddies::default(),
+                };
+
                 map.push(value);
             }
         }
@@ -100,17 +118,20 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
 
     // Spawn a 32 by 32 tilemap.
     // Alternatively, you can use helpers::fill_tilemap.
-    for (tile_pos, texture_index) in map {
+    for tile_values in map {
         let tile_entity = commands
-            .spawn(TileBundle {
-                position: tile_pos,
-                tilemap_id: TilemapId(tilemap_entity),
-                texture_index,
-                ..Default::default()
-            })
+            .spawn((
+                TileBundle {
+                    position: tile_values.pos,
+                    tilemap_id: TilemapId(tilemap_entity),
+                    texture_index: tile_values.texture_index,
+                    ..Default::default()
+                },
+                tile_values.buddies,
+            ))
             .id();
         // Here we let the tile storage component know what tiles we have.
-        tile_storage.set(&tile_pos, tile_entity);
+        tile_storage.set(&tile_values.pos, tile_entity);
     }
 
     // We can grab a list of neighbors.
@@ -145,13 +166,19 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
 
 fn save_tilemap(
     mut tilemap_e: EventReader<GameMapEvent>,
-    tilemap_q: Query<(&TilePos, &TileTextureIndex)>,
+    tilemap_q: Query<(&TilePos, &TileTextureIndex, &TileBuddies)>,
 ) {
     for tilemap_event in tilemap_e.read() {
         match tilemap_event {
             GameMapEvent::Save => {
-                let items: Vec<(TilePos, TileTextureIndex)> =
-                    tilemap_q.iter().map(|(pos, idx)| (*pos, *idx)).collect();
+                let items: Vec<TileValues> = tilemap_q
+                    .iter()
+                    .map(|(pos, idx, buddies)| TileValues {
+                        pos: *pos,
+                        texture_index: *idx,
+                        buddies: buddies.clone(),
+                    })
+                    .collect();
                 let json_items = serde_json::to_string(&items).unwrap();
                 let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
                 fs::write(map_json_file, json_items).unwrap();
