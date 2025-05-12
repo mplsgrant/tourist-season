@@ -1,7 +1,6 @@
 use bdk_button::BDKButton;
 use bevy::prelude::*;
 use bitcoind::BitcoindHandler;
-use borders::Borders;
 use popup::Popup;
 use tilemaptest::TileMapTest;
 
@@ -15,7 +14,6 @@ mod tilemaptest;
 
 fn main() {
     App::new()
-        //.add_plugins(DefaultPlugins)
         .add_plugins(TileMapTest)
         .add_plugins(BDKButton)
         .add_plugins(BitcoindHandler)

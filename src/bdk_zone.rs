@@ -1,6 +1,4 @@
-use bdk_wallet::Wallet;
 use bevy::prelude::*;
-use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bip39::Mnemonic;
 use bitcoin::{
     Address, CompressedPublicKey, KnownHrp, Network, PrivateKey, Script, ScriptBuf,
@@ -21,13 +19,14 @@ use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
 use std::{thread, time::Duration};
 
+use crate::constants::BITCOIN_DIR;
+
 pub fn launch_bitcoind_process() -> Result<(Child, PathBuf, PathBuf)> {
     let challenge = get_segwit_challenge()?;
     let challenge = format!("{}", challenge.as_bytes().as_hex());
-    let bitcoind_path = "bitcoind";
 
     let config_path = get_config_dir()?.join("bitcoin.conf");
-    let datadir = get_data_dir()?.join("bitcoind");
+    let datadir = get_data_dir(Some(BITCOIN_DIR.into()))?;
 
     fs::create_dir_all(&datadir)?;
 
@@ -36,14 +35,14 @@ pub fn launch_bitcoind_process() -> Result<(Child, PathBuf, PathBuf)> {
         info!("Wrote config to {}", config_path.display());
     }
 
-    let (child, data_dir, conf_path) = spawn_bitcoind(bitcoind_path, &datadir, &config_path)?;
+    let (child, data_dir, conf_path) = spawn_bitcoind(BITCOIN_DIR, &datadir, &config_path)?;
     info!("bitcoind launched with PID {}", child.id());
 
     Ok((child, data_dir, conf_path))
 }
 
 pub fn load_descriptor(descriptor: &str) -> Result<()> {
-    let datadir = get_data_dir()?.join("bitcoind");
+    let datadir = get_data_dir(Some(BITCOIN_DIR.into()))?;
     let (user, pass) = read_cookie_auth(&datadir)?;
 
     wait_for_rpc_ready(&user, &pass)?;
@@ -129,7 +128,7 @@ pub fn xpriv_to_descriptor(xpriv: Xpriv) -> String {
 }
 
 pub fn load_wallet() {
-    let data_dir = get_data_dir().unwrap();
+    let data_dir = get_data_dir(None).unwrap();
     let mut conn = bdk_wallet::rusqlite::Connection::open(data_dir).unwrap();
     //    let wallet = Wallet::load().load_wallet(persister);
 }
@@ -169,13 +168,17 @@ pub fn get_config_dir() -> Result<PathBuf> {
     Ok(dir.to_path_buf())
 }
 
-pub fn get_data_dir() -> Result<PathBuf> {
+pub fn get_data_dir(path: Option<PathBuf>) -> Result<PathBuf> {
     let proj_dirs = ProjectDirs::from("", "", env!("CARGO_PKG_NAME"))
         .ok_or_else(|| eyre!("Couldn't get data dir"))?;
-    let data_dir = proj_dirs.data_dir();
+    let data_dir = if let Some(path) = path {
+        &proj_dirs.data_dir().join(path)
+    } else {
+        proj_dirs.data_dir()
+    };
     fs::create_dir_all(data_dir)?;
     info!("data dir: {:?}", data_dir);
-    Ok(proj_dirs.data_dir().to_path_buf())
+    Ok(data_dir.to_path_buf())
 }
 
 pub fn write_bitcoin_conf(path: &Path, challenge: &str) -> std::io::Result<()> {

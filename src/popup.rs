@@ -1,7 +1,11 @@
 #![allow(clippy::type_complexity)]
 
-use crate::{constants::PopupBase, tilemaptest::CursorPos};
+use crate::{
+    constants::{GRASS_BORDER_LOWER_RIGHT, GRASS_BORDER_LOWER_RIGHT_IDX, PopupBase},
+    tilemaptest::{CurTilePos, CursorPos},
+};
 use bevy::{color::palettes::basic::*, prelude::*};
+use bevy_ecs_tilemap::tiles::{TileStorage, TileTextureIndex};
 
 pub struct Popup;
 
@@ -30,11 +34,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let root = commands.spawn(base_node).id();
 
     // labels for the different border edges
-    let building_labels = ["Bottom right"];
+    let building_labels = ["Lower right"];
 
     // all the different combinations of border edges
     // these correspond to the labels above
-    let lower_right = asset_server.load("tiles-test/tile_0038.png");
+    let lower_right = asset_server.load(GRASS_BORDER_LOWER_RIGHT);
     let building_images = [ImageNode::new(lower_right)];
 
     for (label, building_image) in building_labels.into_iter().zip(building_images) {
@@ -132,7 +136,7 @@ fn button_system(
                 outline.color = RED.into();
                 let picked_item = commands
                     .spawn((
-                        Sprite::from_image(asset_server.load("tiles-test/tile_0038.png")),
+                        Sprite::from_image(asset_server.load(GRASS_BORDER_LOWER_RIGHT)),
                         PickedItem,
                         Transform::from_xyz(50., 50., 1.),
                         GlobalZIndex(5),
@@ -161,10 +165,28 @@ fn button_system(
 fn pick_and_place(
     mut picked_q: Query<&mut Transform, With<PickedItem>>,
     cursor_pos: Res<CursorPos>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    cur_tile_pos: Res<CurTilePos>,
+    tilemap_q: Query<&TileStorage>,
+    mut tile_q: Query<(Entity, &mut TileTextureIndex)>,
 ) {
-    // Make the PickedItem follow the the mouse
     if let Ok(mut transform) = picked_q.single_mut() {
+        // Make the PickedItem follow the the mouse
         transform.translation.x = cursor_pos.0.x;
         transform.translation.y = cursor_pos.0.y;
+
+        // Interact with tile
+        if let Some(tile_pos) = cur_tile_pos.0 {
+            if let Ok(tile_storage) = tilemap_q.single() {
+                if let Some(tile_entity) = tile_storage.get(&tile_pos) {
+                    if mouse_button_input.just_pressed(MouseButton::Left) {
+                        info!("MY TILE AGAIN: {tile_entity} {} {}", tile_pos.x, tile_pos.y);
+                        if let Ok((_, mut tile_texture_index)) = tile_q.get_mut(tile_entity) {
+                            *tile_texture_index = TileTextureIndex(GRASS_BORDER_LOWER_RIGHT_IDX);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
