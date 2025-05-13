@@ -29,6 +29,7 @@ impl Plugin for GameMap {
             )
             .init_resource::<CursorPos>()
             .init_resource::<CurTilePos>()
+            .init_resource::<LastTilePos>()
             .add_plugins(TilemapPlugin)
             .add_plugins(tiled_thing::TiledMapPlugin)
             .add_systems(Startup, startup_original_tiles)
@@ -48,12 +49,37 @@ pub enum GameMapEvent {
 
 #[derive(Component, Clone, Default, Serialize, Deserialize)]
 pub struct TileBuddies {
-    pub buddies: Option<HashSet<TilePos>>,
+    pub buddies: Option<HashSet<Buddy>>,
 }
+
+#[derive(Clone, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct Buddy {
+    pub x: i32,
+    pub y: i32,
+    pub texture_index: TileTextureIndex,
+}
+
+#[derive(
+    Component,
+    Reflect,
+    Default,
+    Clone,
+    Copy,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Deserialize,
+    Serialize,
+)]
+pub struct AlphaPos(pub TilePos);
 
 #[derive(Component, Default, Serialize, Deserialize)]
 pub struct TileValues {
     pos: TilePos,
+    alpha_pos: AlphaPos,
     texture_index: TileTextureIndex,
     buddies: TileBuddies,
 }
@@ -106,6 +132,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
             for y in 0..map_size.y {
                 let value = TileValues {
                     pos: TilePos { x, y },
+                    alpha_pos: AlphaPos(TilePos { x, y }), // alpha can be self
                     texture_index: TileTextureIndex(GRASS_IDX),
                     buddies: TileBuddies::default(),
                 };
@@ -166,15 +193,16 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
 
 fn save_tilemap(
     mut tilemap_e: EventReader<GameMapEvent>,
-    tilemap_q: Query<(&TilePos, &TileTextureIndex, &TileBuddies)>,
+    tilemap_q: Query<(&TilePos, &AlphaPos, &TileTextureIndex, &TileBuddies)>,
 ) {
     for tilemap_event in tilemap_e.read() {
         match tilemap_event {
             GameMapEvent::Save => {
                 let items: Vec<TileValues> = tilemap_q
                     .iter()
-                    .map(|(pos, idx, buddies)| TileValues {
+                    .map(|(pos, alpha_pos, idx, buddies)| TileValues {
                         pos: *pos,
+                        alpha_pos: *alpha_pos,
                         texture_index: *idx,
                         buddies: buddies.clone(),
                     })
@@ -190,6 +218,9 @@ fn save_tilemap(
 #[derive(Resource, Default)]
 pub struct CurTilePos(pub Option<TilePos>);
 
+#[derive(Resource, Default)]
+pub struct LastTilePos(pub Option<TilePos>);
+
 fn update_cur_tile_pos(
     cursor_pos: Res<CursorPos>,
     tilemap_q: Query<(
@@ -201,7 +232,9 @@ fn update_cur_tile_pos(
         &TilemapAnchor,
     )>,
     mut cur_tile_pos: ResMut<CurTilePos>,
+    mut last_tile_pos: ResMut<LastTilePos>,
 ) {
+    last_tile_pos.0 = cur_tile_pos.0;
     for (map_size, grid_size, tile_size, map_type, map_transform, anchor) in tilemap_q.iter() {
         // Grab the cursor position from the `Res<CursorPos>`
         let cursor_pos: Vec2 = cursor_pos.0;
