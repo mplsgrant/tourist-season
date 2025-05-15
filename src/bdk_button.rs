@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use crate::{
-    bdk_zone::get_segwit_challenge, constants::PopupBase, popup::PickedItem,
+    bdk_zone::get_segwit_challenge, constants::PopupBase, popup::PopupItem,
     tilemaptest::GameMapEvent,
 };
 use bevy::{color::palettes::basic::*, prelude::*};
@@ -39,7 +39,7 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
     mut popup_q: Query<&mut Node, With<PopupBase>>,
-    mut picked_q: Query<(Entity, &PickedItem)>,
+    mut picked_q: Query<(Entity, &PopupItem)>,
     mut tilemap_e: EventWriter<GameMapEvent>,
 ) {
     for (interaction, mut color, mut border_color, children, button_action) in

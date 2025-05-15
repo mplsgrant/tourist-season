@@ -8,8 +8,10 @@ mod bdk_button;
 mod bdk_zone;
 mod bitcoind;
 mod borders;
+mod camera;
 mod constants;
 mod popup;
+mod tiled_thing;
 mod tilemaptest;
 
 fn main() {
