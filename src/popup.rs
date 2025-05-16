@@ -3,8 +3,9 @@
 
 use crate::{
     constants::{
-        DIRT, GRASS_BORDER_LOWER_IDX, GRASS_BORDER_LOWER_LEFT, GRASS_BORDER_LOWER_LEFT_IDX,
-        GRASS_BORDER_LOWER_RIGHT, GRASS_BORDER_LOWER_RIGHT_IDX, GRASS_IDX, PopupBase,
+        DIRT, GRASS_BORDER_LOWER, GRASS_BORDER_LOWER_IDX, GRASS_BORDER_LOWER_LEFT,
+        GRASS_BORDER_LOWER_LEFT_IDX, GRASS_BORDER_LOWER_RIGHT, GRASS_BORDER_LOWER_RIGHT_IDX,
+        GRASS_BORDER_UPPER, GRASS_BORDER_UPPER_IDX, GRASS_IDX, PopupBase,
     },
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
 };
@@ -28,61 +29,46 @@ pub struct PopupEvent {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let base_node = (
-        Node {
-            margin: UiRect::all(Val::Px(25.0)),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
-            flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
-            ..default()
-        },
-        BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+    let popup_root = commands
+        .spawn((
+            Node {
+                margin: UiRect::all(Val::Px(25.0)),
+                align_self: AlignSelf::Stretch,
+                justify_self: JustifySelf::Stretch,
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::FlexStart,
+                align_content: AlignContent::FlexStart,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+        ))
+        .id();
+
+    let horizontal_walkway_label = "Horizontal Walkway";
+    let grass_border_upper = ImageNode::new(asset_server.load(GRASS_BORDER_UPPER));
+    let grass_border_lower = ImageNode::new(asset_server.load(GRASS_BORDER_LOWER));
+
+    let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = four_by_four(
+        horizontal_walkway_label,
+        &grass_border_lower,
+        &grass_border_lower,
+        &grass_border_upper,
+        &grass_border_upper,
+        &mut commands,
     );
 
-    let root = commands.spawn(base_node).id();
+    let container = commands
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            row_gap: Val::Percent(12.0),
+            ..default()
+        })
+        .add_children(&[horizontal_walkway_tile_node, horizontal_walkway_label_node])
+        .id();
 
-    let tile_labels = ["Horizontal Walkway"];
-
-    let horizontal_walkway = asset_server.load(DIRT);
-    let building_images = [ImageNode::new(horizontal_walkway)];
-
-    let parent_node = commands.spawn(Node::default()).id();
-
-    for (label, building_image) in tile_labels.into_iter().zip(building_images) {
-        let building_node = commands
-            .spawn((
-                building_image,
-                Button,
-                Outline {
-                    width: Val::Px(2.),
-                    offset: Val::Px(0.),
-                    color: Color::WHITE,
-                },
-            ))
-            .id();
-        let label_node = commands
-            .spawn((
-                Text::new(label),
-                TextFont {
-                    font_size: 12.0,
-                    ..Default::default()
-                },
-            ))
-            .id();
-        let container = commands
-            .spawn(Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: Val::Percent(12.0),
-                ..default()
-            })
-            .add_children(&[building_node, label_node])
-            .id();
-        commands.entity(root).add_child(container);
-    }
+    commands.entity(popup_root).add_child(container);
 
     let popup_label = commands
         .spawn((
@@ -125,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             PopupBase,
         ))
         .add_child(popup_label)
-        .add_child(root);
+        .add_child(popup_root);
 }
 
 #[derive(Component, Default, Clone)]
@@ -147,15 +133,19 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 let picked_item = PopupItem {
-                    alpha_texture_idx: TileTextureIndex(GRASS_BORDER_LOWER_LEFT_IDX),
+                    alpha_texture_idx: TileTextureIndex(GRASS_BORDER_LOWER_IDX),
                     relative_pos_and_idx: vec![
                         (
                             TilePos { x: 1, y: 0 },
                             TileTextureIndex(GRASS_BORDER_LOWER_IDX),
                         ),
                         (
-                            TilePos { x: 2, y: 0 },
-                            TileTextureIndex(GRASS_BORDER_LOWER_RIGHT_IDX),
+                            TilePos { x: 0, y: 1 },
+                            TileTextureIndex(GRASS_BORDER_UPPER_IDX),
+                        ),
+                        (
+                            TilePos { x: 1, y: 1 },
+                            TileTextureIndex(GRASS_BORDER_UPPER_IDX),
                         ),
                     ],
                 };
@@ -326,4 +316,50 @@ fn place_tiles(
             *texture_idx = event.tile_values.texture_index;
         }
     }
+}
+
+fn four_by_four(
+    label: &str,
+    lower_left: &ImageNode,
+    lower_right: &ImageNode,
+    upper_left: &ImageNode,
+    upper_right: &ImageNode,
+    commands: &mut Commands,
+) -> (Entity, Entity) {
+    let horizontal_walkway_tile_node = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                ..Default::default()
+            },
+            Button,
+            Outline {
+                width: Val::Px(2.),
+                offset: Val::Px(0.),
+                color: Color::WHITE,
+            },
+        ))
+        .with_children(|main_tile| {
+            main_tile.spawn(Node::default()).with_children(|top_row| {
+                top_row.spawn((upper_left.clone(),));
+                top_row.spawn((upper_right.clone(),));
+            });
+
+            main_tile.spawn(Node::default()).with_children(|top_row| {
+                top_row.spawn((lower_left.clone(),));
+                top_row.spawn((lower_right.clone(),));
+            });
+        })
+        .id();
+    let horizontal_walkway_label_node = commands
+        .spawn((
+            Text::new(label),
+            TextFont {
+                font_size: 12.0,
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    (horizontal_walkway_tile_node, horizontal_walkway_label_node)
 }
