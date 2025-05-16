@@ -130,7 +130,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 #[derive(Component, Default, Clone)]
 pub struct PopupItem {
-    pub relative_pos: Vec<(TilePos, TileTextureIndex)>,
+    pub alpha_texture_idx: TileTextureIndex,
+    pub relative_pos_and_idx: Vec<(TilePos, TileTextureIndex)>,
 }
 
 fn button_system(
@@ -146,11 +147,8 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 let picked_item = PopupItem {
-                    relative_pos: vec![
-                        (
-                            TilePos { x: 0, y: 0 },
-                            TileTextureIndex(GRASS_BORDER_LOWER_LEFT_IDX),
-                        ),
+                    alpha_texture_idx: TileTextureIndex(GRASS_BORDER_LOWER_LEFT_IDX),
+                    relative_pos_and_idx: vec![
                         (
                             TilePos { x: 1, y: 0 },
                             TileTextureIndex(GRASS_BORDER_LOWER_IDX),
@@ -217,42 +215,62 @@ fn pick_and_place(
 
                         let tiles_to_highlight: Vec<Option<(TilePos, &TileTextureIndex, Entity)>> =
                             popup_item
-                                .relative_pos
+                                .relative_pos_and_idx
                                 .iter()
-                                .map(|(rel_pos, texture_index)| TilePos {
-                                    x: rel_pos.x + active_tile_pos.x,
-                                    y: rel_pos.y + active_tile_pos.y,
+                                .map(|(rel_pos, texture_idx)| {
+                                    (
+                                        TilePos {
+                                            x: rel_pos.x + active_tile_pos.x,
+                                            y: rel_pos.y + active_tile_pos.y,
+                                        },
+                                        texture_idx,
+                                    )
                                 })
-                                .map(|pos| (pos, tile_storage.checked_get(&pos)))
-                                .map(|(pos, maybe_tile_entity)| {
+                                .map(|(pos, texture_idx)| {
+                                    (pos, texture_idx, tile_storage.checked_get(&pos))
+                                })
+                                .map(|(pos, texture_idx, maybe_tile_entity)| {
                                     if let Some(tile_entity) = maybe_tile_entity {
-                                        if let Ok(texture) = texture_q.get(tile_entity) {
-                                            (pos, Some(texture), Some(tile_entity))
+                                        if let Ok(existing_texture) = texture_q.get(tile_entity) {
+                                            (
+                                                pos,
+                                                texture_idx,
+                                                Some(existing_texture),
+                                                Some(tile_entity),
+                                            )
                                         } else {
-                                            (pos, None, None)
+                                            (pos, texture_idx, None, None)
                                         }
                                     } else {
-                                        (pos, None, None)
+                                        (pos, texture_idx, None, None)
                                     }
                                 })
                                 .chain(std::iter::once((
                                     active_tile_pos,
+                                    &popup_item.alpha_texture_idx,
                                     Some(active_tile_texture),
                                     Some(active_tile_entity),
                                 )))
-                                .map(|(pos, maybe_texture_idx, maybe_entity)| {
-                                    if let (Some(texture_idx), Some(entity)) =
-                                        (maybe_texture_idx, maybe_entity)
-                                    {
-                                        if texture_idx.0 == GRASS_IDX {
-                                            Some((pos, texture_idx, entity))
+                                .map(
+                                    |(
+                                        pos,
+                                        texture_idx,
+                                        maybe_existing_texture_idx,
+                                        maybe_entity,
+                                    )| {
+                                        if let (Some(existing_texture_idx), Some(entity)) =
+                                            (maybe_existing_texture_idx, maybe_entity)
+                                        {
+                                            if existing_texture_idx.0 == GRASS_IDX {
+                                                Some((pos, texture_idx, entity))
+                                            } else {
+                                                None
+                                            }
                                         } else {
                                             None
                                         }
-                                    } else {
-                                        None
-                                    }
-                                })
+                                    },
+                                )
                                 .collect();
 
                         let is_placeable = if tiles_to_highlight.iter().any(|tile| tile.is_none()) {
