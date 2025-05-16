@@ -185,6 +185,11 @@ fn button_system(
     }
 }
 
+enum PlaceableReason {
+    None,
+    Grass,
+}
+
 fn pick_and_place(
     mut picked_q: Query<(&mut Transform, &PopupItem)>,
     mut color_q: Query<&mut TileColor>,
@@ -212,66 +217,68 @@ fn pick_and_place(
                         .get(active_tile_entity)
                         .expect("Texture query did not find active tile.");
 
-                    let tiles_to_highlight: Vec<Option<(TilePos, &TileTextureIndex, Entity)>> =
-                        popup_item
-                            .relative_pos_and_idx
-                            .iter()
-                            .map(|(rel_pos, texture_idx)| {
-                                (
-                                    TilePos {
-                                        x: rel_pos.x + active_tile_pos.x,
-                                        y: rel_pos.y + active_tile_pos.y,
-                                    },
-                                    texture_idx,
-                                )
-                            })
-                            .map(|(pos, texture_idx)| {
-                                (pos, texture_idx, tile_storage.checked_get(&pos))
-                            })
-                            .map(|(pos, texture_idx, maybe_tile_entity)| {
-                                if let Some(tile_entity) = maybe_tile_entity {
-                                    if let Ok(existing_texture) = texture_q.get(tile_entity) {
-                                        (
-                                            pos,
-                                            texture_idx,
-                                            Some(existing_texture),
-                                            Some(tile_entity),
-                                        )
-                                    } else {
-                                        (pos, texture_idx, None, None)
-                                    }
+                    let tiles_to_highlight: Vec<
+                        Option<(TilePos, &TileTextureIndex, Entity, PlaceableReason)>,
+                    > = popup_item
+                        .relative_pos_and_idx
+                        .iter()
+                        .map(|(rel_pos, texture_idx)| {
+                            (
+                                TilePos {
+                                    x: rel_pos.x + active_tile_pos.x,
+                                    y: rel_pos.y + active_tile_pos.y,
+                                },
+                                texture_idx,
+                            )
+                        })
+                        .map(|(pos, texture_idx)| {
+                            (pos, texture_idx, tile_storage.checked_get(&pos))
+                        })
+                        .map(|(pos, texture_idx, maybe_tile_entity)| {
+                            if let Some(tile_entity) = maybe_tile_entity {
+                                if let Ok(existing_texture) = texture_q.get(tile_entity) {
+                                    (pos, texture_idx, Some(existing_texture), Some(tile_entity))
                                 } else {
                                     (pos, texture_idx, None, None)
                                 }
-                            })
-                            .chain(std::iter::once((
-                                active_tile_pos,
-                                &popup_item.alpha_texture_idx,
-                                Some(active_tile_texture),
-                                Some(active_tile_entity),
-                            )))
-                            .map(
-                                |(pos, texture_idx, maybe_existing_texture_idx, maybe_entity)| {
-                                    if let (Some(existing_texture_idx), Some(entity)) =
-                                        (maybe_existing_texture_idx, maybe_entity)
-                                    {
-                                        if existing_texture_idx.0 == GRASS_IDX {
-                                            Some((pos, texture_idx, entity))
-                                        } else {
-                                            None
-                                        }
+                            } else {
+                                (pos, texture_idx, None, None)
+                            }
+                        })
+                        .chain(std::iter::once((
+                            active_tile_pos,
+                            &popup_item.alpha_texture_idx,
+                            Some(active_tile_texture),
+                            Some(active_tile_entity),
+                        )))
+                        .map(
+                            |(pos, texture_idx, maybe_existing_texture_idx, maybe_entity)| {
+                                if let (Some(existing_texture_idx), Some(entity)) =
+                                    (maybe_existing_texture_idx, maybe_entity)
+                                {
+                                    if existing_texture_idx.0 == GRASS_IDX {
+                                        Some((pos, texture_idx, entity, PlaceableReason::Grass))
                                     } else {
-                                        None
+                                        Some((pos, texture_idx, entity, PlaceableReason::None))
                                     }
-                                },
-                            )
-                            .collect();
+                                } else {
+                                    None
+                                }
+                            },
+                        )
+                        .collect();
 
-                    let is_placeable = if tiles_to_highlight.iter().any(|tile| tile.is_none()) {
+                    let is_placeable = if tiles_to_highlight.iter().any(|tile| match tile {
+                        Some(tile) => match tile.3 {
+                            PlaceableReason::None => true,
+                            PlaceableReason::Grass => false,
+                        },
+                        None => true,
+                    }) {
                         tiles_to_highlight
                             .iter()
                             .flatten()
-                            .for_each(|(_, _, entity)| {
+                            .for_each(|(_, _, entity, _)| {
                                 let mut color = color_q.get_mut(*entity).unwrap();
                                 color.0 = Color::srgba(1.0, 0.0, 0.0, 0.5);
                             });
@@ -280,7 +287,7 @@ fn pick_and_place(
                         let placeables = tiles_to_highlight
                             .iter()
                             .flatten()
-                            .map(|(pos, texture_idx, entity)| {
+                            .map(|(pos, texture_idx, entity, _)| {
                                 let mut color = color_q.get_mut(*entity).unwrap();
                                 color.0 = Color::srgba(0.0, 1.0, 0.5, 0.5);
                                 PopupEvent {
