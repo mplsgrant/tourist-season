@@ -1,8 +1,9 @@
 #![allow(clippy::type_complexity)]
+#![allow(clippy::too_many_arguments)]
 
 use crate::{
     constants::{
-        GRASS_BORDER_LOWER_IDX, GRASS_BORDER_LOWER_LEFT, GRASS_BORDER_LOWER_LEFT_IDX,
+        DIRT, GRASS_BORDER_LOWER_IDX, GRASS_BORDER_LOWER_LEFT, GRASS_BORDER_LOWER_LEFT_IDX,
         GRASS_BORDER_LOWER_RIGHT, GRASS_BORDER_LOWER_RIGHT_IDX, GRASS_IDX, PopupBase,
     },
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
@@ -43,15 +44,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let root = commands.spawn(base_node).id();
 
-    // labels for the different border edges
-    let building_labels = ["Lower right"];
+    let tile_labels = ["Horizontal Walkway"];
 
-    // all the different combinations of border edges
-    // these correspond to the labels above
-    let lower_right = asset_server.load(GRASS_BORDER_LOWER_RIGHT);
-    let building_images = [ImageNode::new(lower_right)];
+    let horizontal_walkway = asset_server.load(DIRT);
+    let building_images = [ImageNode::new(horizontal_walkway)];
 
-    for (label, building_image) in building_labels.into_iter().zip(building_images) {
+    let parent_node = commands.spawn(Node::default()).id();
+
+    for (label, building_image) in tile_labels.into_iter().zip(building_images) {
         let building_node = commands
             .spawn((
                 building_image,
@@ -205,110 +205,102 @@ fn pick_and_place(
             color_q
                 .iter_mut()
                 .for_each(|mut color| color.0 = Color::default());
-        } else {
-            if let Some(active_tile_pos) = cur_tile_pos.0 {
-                if let Ok(tile_storage) = tilemap_q.single() {
-                    if let Some(active_tile_entity) = tile_storage.get(&active_tile_pos) {
-                        let active_tile_texture = texture_q
-                            .get(active_tile_entity)
-                            .expect("Texture query did not find active tile.");
+        } else if let Some(active_tile_pos) = cur_tile_pos.0 {
+            if let Ok(tile_storage) = tilemap_q.single() {
+                if let Some(active_tile_entity) = tile_storage.get(&active_tile_pos) {
+                    let active_tile_texture = texture_q
+                        .get(active_tile_entity)
+                        .expect("Texture query did not find active tile.");
 
-                        let tiles_to_highlight: Vec<Option<(TilePos, &TileTextureIndex, Entity)>> =
-                            popup_item
-                                .relative_pos_and_idx
-                                .iter()
-                                .map(|(rel_pos, texture_idx)| {
-                                    (
-                                        TilePos {
-                                            x: rel_pos.x + active_tile_pos.x,
-                                            y: rel_pos.y + active_tile_pos.y,
-                                        },
-                                        texture_idx,
-                                    )
-                                })
-                                .map(|(pos, texture_idx)| {
-                                    (pos, texture_idx, tile_storage.checked_get(&pos))
-                                })
-                                .map(|(pos, texture_idx, maybe_tile_entity)| {
-                                    if let Some(tile_entity) = maybe_tile_entity {
-                                        if let Ok(existing_texture) = texture_q.get(tile_entity) {
-                                            (
-                                                pos,
-                                                texture_idx,
-                                                Some(existing_texture),
-                                                Some(tile_entity),
-                                            )
-                                        } else {
-                                            (pos, texture_idx, None, None)
-                                        }
+                    let tiles_to_highlight: Vec<Option<(TilePos, &TileTextureIndex, Entity)>> =
+                        popup_item
+                            .relative_pos_and_idx
+                            .iter()
+                            .map(|(rel_pos, texture_idx)| {
+                                (
+                                    TilePos {
+                                        x: rel_pos.x + active_tile_pos.x,
+                                        y: rel_pos.y + active_tile_pos.y,
+                                    },
+                                    texture_idx,
+                                )
+                            })
+                            .map(|(pos, texture_idx)| {
+                                (pos, texture_idx, tile_storage.checked_get(&pos))
+                            })
+                            .map(|(pos, texture_idx, maybe_tile_entity)| {
+                                if let Some(tile_entity) = maybe_tile_entity {
+                                    if let Ok(existing_texture) = texture_q.get(tile_entity) {
+                                        (
+                                            pos,
+                                            texture_idx,
+                                            Some(existing_texture),
+                                            Some(tile_entity),
+                                        )
                                     } else {
                                         (pos, texture_idx, None, None)
                                     }
-                                })
-                                .chain(std::iter::once((
-                                    active_tile_pos,
-                                    &popup_item.alpha_texture_idx,
-                                    Some(active_tile_texture),
-                                    Some(active_tile_entity),
-                                )))
-                                .map(
-                                    |(
-                                        pos,
-                                        texture_idx,
-                                        maybe_existing_texture_idx,
-                                        maybe_entity,
-                                    )| {
-                                        if let (Some(existing_texture_idx), Some(entity)) =
-                                            (maybe_existing_texture_idx, maybe_entity)
-                                        {
-                                            if existing_texture_idx.0 == GRASS_IDX {
-                                                Some((pos, texture_idx, entity))
-                                            } else {
-                                                None
-                                            }
+                                } else {
+                                    (pos, texture_idx, None, None)
+                                }
+                            })
+                            .chain(std::iter::once((
+                                active_tile_pos,
+                                &popup_item.alpha_texture_idx,
+                                Some(active_tile_texture),
+                                Some(active_tile_entity),
+                            )))
+                            .map(
+                                |(pos, texture_idx, maybe_existing_texture_idx, maybe_entity)| {
+                                    if let (Some(existing_texture_idx), Some(entity)) =
+                                        (maybe_existing_texture_idx, maybe_entity)
+                                    {
+                                        if existing_texture_idx.0 == GRASS_IDX {
+                                            Some((pos, texture_idx, entity))
                                         } else {
                                             None
                                         }
-                                    },
-                                )
-                                .collect();
-
-                        let is_placeable = if tiles_to_highlight.iter().any(|tile| tile.is_none()) {
-                            tiles_to_highlight
-                                .iter()
-                                .flatten()
-                                .for_each(|(_, _, entity)| {
-                                    let mut color = color_q.get_mut(*entity).unwrap();
-                                    color.0 = Color::srgba(1.0, 0.0, 0.0, 0.5);
-                                });
-                            None
-                        } else {
-                            let placeables = tiles_to_highlight
-                                .iter()
-                                .flatten()
-                                .map(|(pos, texture_idx, entity)| {
-                                    let mut color = color_q.get_mut(*entity).unwrap();
-                                    color.0 = Color::srgba(0.0, 1.0, 0.5, 0.5);
-                                    PopupEvent {
-                                        entity: *entity,
-                                        tile_values: TileValues {
-                                            pos: *pos,
-                                            alpha_pos: AlphaPos(active_tile_pos),
-                                            texture_index: **texture_idx,
-                                            buddies: TileBuddies { buddies: None },
-                                        },
+                                    } else {
+                                        None
                                     }
-                                })
-                                .collect::<Vec<PopupEvent>>();
-                            Some(placeables)
-                        };
+                                },
+                            )
+                            .collect();
 
-                        if mouse_button_input.just_pressed(MouseButton::Left) {
-                            info!("BAZE");
-                            is_placeable.iter().flatten().for_each(|event| {
-                                let _id = popup_e.write(event.clone());
+                    let is_placeable = if tiles_to_highlight.iter().any(|tile| tile.is_none()) {
+                        tiles_to_highlight
+                            .iter()
+                            .flatten()
+                            .for_each(|(_, _, entity)| {
+                                let mut color = color_q.get_mut(*entity).unwrap();
+                                color.0 = Color::srgba(1.0, 0.0, 0.0, 0.5);
                             });
-                        }
+                        None
+                    } else {
+                        let placeables = tiles_to_highlight
+                            .iter()
+                            .flatten()
+                            .map(|(pos, texture_idx, entity)| {
+                                let mut color = color_q.get_mut(*entity).unwrap();
+                                color.0 = Color::srgba(0.0, 1.0, 0.5, 0.5);
+                                PopupEvent {
+                                    entity: *entity,
+                                    tile_values: TileValues {
+                                        pos: *pos,
+                                        alpha_pos: AlphaPos(active_tile_pos),
+                                        texture_index: **texture_idx,
+                                        buddies: TileBuddies { buddies: None },
+                                    },
+                                }
+                            })
+                            .collect::<Vec<PopupEvent>>();
+                        Some(placeables)
+                    };
+
+                    if mouse_button_input.just_pressed(MouseButton::Left) {
+                        is_placeable.iter().flatten().for_each(|event| {
+                            let _id = popup_e.write(event.clone());
+                        });
                     }
                 }
             }
@@ -322,7 +314,6 @@ fn place_tiles(
 ) {
     for event in popup_e.read() {
         if let Ok((mut buddies, mut alpha_pos, mut texture_idx)) = tiles_q.get_mut(event.entity) {
-            info!("HI {texture_idx:?}");
             *buddies = event.tile_values.buddies.clone();
             *alpha_pos = event.tile_values.alpha_pos;
             *texture_idx = event.tile_values.texture_index;
