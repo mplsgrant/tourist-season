@@ -2,11 +2,7 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
-    constants::{
-        DIRT, GRASS_BORDER_LOWER, GRASS_BORDER_LOWER_IDX, GRASS_BORDER_LOWER_LEFT,
-        GRASS_BORDER_LOWER_LEFT_IDX, GRASS_BORDER_LOWER_RIGHT, GRASS_BORDER_LOWER_RIGHT_IDX,
-        GRASS_BORDER_UPPER, GRASS_BORDER_UPPER_IDX, GRASS_IDX, PopupBase,
-    },
+    constants::{ImgAsset, PopupBase},
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
 };
 use bevy::{color::palettes::basic::*, prelude::*};
@@ -46,8 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     let horizontal_walkway_label = "Horizontal Walkway";
-    let grass_border_upper = ImageNode::new(asset_server.load(GRASS_BORDER_UPPER));
-    let grass_border_lower = ImageNode::new(asset_server.load(GRASS_BORDER_LOWER));
+    let grass_border_upper = ImageNode::new(asset_server.load(ImgAsset::GrassBorderUpper.path()));
+    let grass_border_lower = ImageNode::new(asset_server.load(ImgAsset::GrassBorderLower.path()));
 
     let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = four_by_four(
         horizontal_walkway_label,
@@ -133,25 +129,25 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 let picked_item = PopupItem {
-                    alpha_texture_idx: TileTextureIndex(GRASS_BORDER_LOWER_IDX),
+                    alpha_texture_idx: TileTextureIndex(ImgAsset::GrassBorderLower.index()),
                     relative_pos_and_idx: vec![
                         (
                             TilePos { x: 1, y: 0 },
-                            TileTextureIndex(GRASS_BORDER_LOWER_IDX),
+                            TileTextureIndex(ImgAsset::GrassBorderLower.index()),
                         ),
                         (
                             TilePos { x: 0, y: 1 },
-                            TileTextureIndex(GRASS_BORDER_UPPER_IDX),
+                            TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
                         ),
                         (
                             TilePos { x: 1, y: 1 },
-                            TileTextureIndex(GRASS_BORDER_UPPER_IDX),
+                            TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
                         ),
                     ],
                 };
                 outline.color = RED.into();
                 commands.spawn((
-                    Sprite::from_image(asset_server.load(GRASS_BORDER_LOWER_LEFT)),
+                    Sprite::from_image(asset_server.load(ImgAsset::GrassBorderLowerLeft.path())),
                     picked_item,
                     Transform::from_xyz(50., 50., 1.),
                     GlobalZIndex(5),
@@ -246,7 +242,7 @@ fn pick_and_place(
                                 if let (Some(existing_texture_idx), Some(entity)) =
                                     (maybe_existing_texture_idx, maybe_entity)
                                 {
-                                    if existing_texture_idx.0 == GRASS_IDX {
+                                    if existing_texture_idx.0 == ImgAsset::Grass.index() {
                                         Some((pos, texture_idx, entity, PlaceableReason::Grass))
                                     } else {
                                         Some((pos, texture_idx, entity, PlaceableReason::None))

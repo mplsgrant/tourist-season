@@ -1,8 +1,6 @@
-use crate::bdk_zone::get_data_dir;
-use crate::constants::{
-    DIRT, GRASS_BORDER_LEFT, GRASS_BORDER_LOWER, GRASS_BORDER_LOWER_LEFT, GRASS_BORDER_LOWER_RIGHT,
-    GRASS_BORDER_RIGHT, GRASS_BORDER_UPPER, GRASS_BORDER_UPPER_LEFT_PATH, GRASS_BORDER_UPPER_RIGHT,
-    GRASS_IDX, GRASS_PATH, MAP_DIR, MAP_JSON, PopupBase, Z_TILEMAP,
+use crate::{
+    bdk_zone::get_data_dir,
+    constants::{ImgAsset, MAP_DIR, MAP_JSON, PopupBase, Z_TILEMAP},
 };
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
@@ -10,6 +8,7 @@ use bevy_ecs_tilemap::helpers::square_grid::neighbors::Neighbors;
 use bevy_ecs_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use strum::IntoEnumIterator;
 
 pub struct GameMap;
 
@@ -92,18 +91,9 @@ pub struct TileValues {
 fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let image_handles: Vec<Handle<Image>> = vec![
-        asset_server.load(GRASS_PATH),
-        asset_server.load(GRASS_BORDER_UPPER_LEFT_PATH),
-        asset_server.load(GRASS_BORDER_UPPER),
-        asset_server.load(GRASS_BORDER_UPPER_RIGHT),
-        asset_server.load(GRASS_BORDER_LEFT),
-        asset_server.load(DIRT),
-        asset_server.load(GRASS_BORDER_RIGHT),
-        asset_server.load(GRASS_BORDER_LOWER_LEFT),
-        asset_server.load(GRASS_BORDER_LOWER),
-        asset_server.load(GRASS_BORDER_LOWER_RIGHT),
-    ];
+    let image_handles: Vec<Handle<Image>> = ImgAsset::iter()
+        .map(|img_asset| asset_server.load(img_asset.path()))
+        .collect();
 
     let textures = TilemapTexture::Vector(image_handles);
     // let texture_handle: Handle<Image> = asset_server.load("tiles.png");
@@ -138,7 +128,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
                 let value = TileValues {
                     pos: TilePos { x, y },
                     alpha_pos: AlphaPos(TilePos { x, y }), // alpha can be self
-                    texture_index: TileTextureIndex(GRASS_IDX),
+                    texture_index: TileTextureIndex(ImgAsset::Grass.index()),
                     buddies: TileBuddies::default(),
                 };
                 map.push(value);
