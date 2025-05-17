@@ -24,6 +24,12 @@ pub struct PopupEvent {
     tile_values: TileValues,
 }
 
+#[derive(Component, Clone, Copy)]
+pub enum TileType {
+    HorizontalPath,
+    BuildingA,
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let popup_root = commands
         .spawn((
@@ -41,6 +47,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .id();
 
+    let building_a_label = "Building A";
+    let red_brick_col_upper = ImageNode::new(asset_server.load(ImgAsset::RedBrickColUpper.path()));
+    let red_brick_col_lower = ImageNode::new(asset_server.load(ImgAsset::RedBrickColLower.path()));
+    let red_brick_mid_upper_a =
+        ImageNode::new(asset_server.load(ImgAsset::RedBrickMidUpperA.path()));
+
+    let my_tile = [
+        [&red_brick_col_upper, &red_brick_col_upper],
+        [&red_brick_col_lower, &red_brick_col_lower],
+    ];
+    let (building_a_tile_node, building_a_label_node) = matrix_to_tile_nodes(
+        building_a_label,
+        my_tile,
+        TileType::BuildingA,
+        &mut commands,
+    );
+
     let horizontal_walkway_label = "Horizontal Walkway";
     let grass_border_upper = ImageNode::new(asset_server.load(ImgAsset::GrassBorderUpper.path()));
     let grass_border_lower = ImageNode::new(asset_server.load(ImgAsset::GrassBorderLower.path()));
@@ -49,8 +72,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         [&grass_border_upper, &grass_border_upper],
         [&grass_border_lower, &grass_border_lower],
     ];
-    let (horizontal_walkway_tile_node, horizontal_walkway_label_node) =
-        matrix_to_tile_nodes(horizontal_walkway_label, my_tile, &mut commands);
+    let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = matrix_to_tile_nodes(
+        horizontal_walkway_label,
+        my_tile,
+        TileType::HorizontalPath,
+        &mut commands,
+    );
 
     let container = commands
         .spawn(Node {
@@ -60,6 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .add_children(&[horizontal_walkway_tile_node, horizontal_walkway_label_node])
+        .add_children(&[building_a_tile_node, building_a_label_node])
         .id();
 
     commands.entity(popup_root).add_child(container);
@@ -117,39 +145,81 @@ pub struct PopupItem {
 fn button_system(
     mut commands: Commands,
     mut interaction_query: Query<
-        (&Interaction, &mut Outline),
+        (&Interaction, &mut Outline, &TileType),
         (Changed<Interaction>, With<Button>),
     >,
     asset_server: Res<AssetServer>,
     mut popup_q: Query<&mut Node, With<PopupBase>>,
 ) {
-    for (interaction, mut outline) in &mut interaction_query {
+    for (interaction, mut outline, tile_type) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                let picked_item = PopupItem {
-                    alpha_texture_idx: TileTextureIndex(ImgAsset::GrassBorderLower.index()),
-                    relative_pos_and_idx: vec![
-                        (
-                            TilePos { x: 1, y: 0 },
-                            TileTextureIndex(ImgAsset::GrassBorderLower.index()),
-                        ),
-                        (
-                            TilePos { x: 0, y: 1 },
-                            TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
-                        ),
-                        (
-                            TilePos { x: 1, y: 1 },
-                            TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
-                        ),
-                    ],
-                };
                 outline.color = RED.into();
-                commands.spawn((
-                    Sprite::from_image(asset_server.load(ImgAsset::GrassBorderLowerLeft.path())),
-                    picked_item,
-                    Transform::from_xyz(50., 50., 1.),
-                    GlobalZIndex(5),
-                ));
+
+                match tile_type {
+                    TileType::HorizontalPath => {
+                        let picked_item = PopupItem {
+                            alpha_texture_idx: TileTextureIndex(ImgAsset::GrassBorderLower.index()),
+                            relative_pos_and_idx: vec![
+                                (
+                                    TilePos { x: 1, y: 0 },
+                                    TileTextureIndex(ImgAsset::GrassBorderLower.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 1 },
+                                    TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 1 },
+                                    TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
+                                ),
+                            ],
+                        };
+
+                        commands.spawn((
+                            Sprite::from_image(
+                                asset_server.load(ImgAsset::GrassBorderLowerLeft.path()),
+                            ),
+                            picked_item,
+                            Transform::from_xyz(50., 50., 1.),
+                            GlobalZIndex(5),
+                        ));
+                    }
+                    TileType::BuildingA => {
+                        let picked_item = PopupItem {
+                            alpha_texture_idx: TileTextureIndex(ImgAsset::RedBrickColLower.index()),
+                            relative_pos_and_idx: vec![
+                                (
+                                    TilePos { x: 1, y: 0 },
+                                    TileTextureIndex(ImgAsset::DoorSingleGlassClosed.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 0 },
+                                    TileTextureIndex(ImgAsset::RedBrickColLower.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 1 },
+                                    TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 1 },
+                                    TileTextureIndex(ImgAsset::RedBrickMidUpperA.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 1 },
+                                    TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
+                                ),
+                            ],
+                        };
+
+                        commands.spawn((
+                            Sprite::from_image(asset_server.load(ImgAsset::RedBrickBlankA.path())),
+                            picked_item,
+                            Transform::from_xyz(50., 50., 1.),
+                            GlobalZIndex(5),
+                        ));
+                    }
+                }
 
                 // Disappear the popup
                 for mut node in &mut popup_q {
@@ -320,6 +390,7 @@ fn place_tiles(
 fn matrix_to_tile_nodes<'a, I, J>(
     label: &str,
     matrix: I,
+    tile_type: TileType,
     commands: &mut Commands,
 ) -> (Entity, Entity)
 where
@@ -333,6 +404,7 @@ where
                 ..Default::default()
             },
             Button,
+            tile_type,
             Outline {
                 width: Val::Px(2.),
                 offset: Val::Px(0.),
