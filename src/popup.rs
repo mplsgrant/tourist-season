@@ -45,14 +45,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let grass_border_upper = ImageNode::new(asset_server.load(ImgAsset::GrassBorderUpper.path()));
     let grass_border_lower = ImageNode::new(asset_server.load(ImgAsset::GrassBorderLower.path()));
 
-    let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = four_by_four(
-        horizontal_walkway_label,
-        &grass_border_lower,
-        &grass_border_lower,
-        &grass_border_upper,
-        &grass_border_upper,
-        &mut commands,
-    );
+    let my_tile = [
+        [&grass_border_upper, &grass_border_upper],
+        [&grass_border_lower, &grass_border_lower],
+    ];
+    let (horizontal_walkway_tile_node, horizontal_walkway_label_node) =
+        matrix_to_tile_nodes(horizontal_walkway_label, my_tile, &mut commands);
 
     let container = commands
         .spawn(Node {
@@ -319,14 +317,15 @@ fn place_tiles(
     }
 }
 
-fn four_by_four(
+fn matrix_to_tile_nodes<'a, I, J>(
     label: &str,
-    lower_left: &ImageNode,
-    lower_right: &ImageNode,
-    upper_left: &ImageNode,
-    upper_right: &ImageNode,
+    matrix: I,
     commands: &mut Commands,
-) -> (Entity, Entity) {
+) -> (Entity, Entity)
+where
+    I: IntoIterator<Item = J>,
+    J: IntoIterator<Item = &'a ImageNode>,
+{
     let horizontal_walkway_tile_node = commands
         .spawn((
             Node {
@@ -341,17 +340,16 @@ fn four_by_four(
             },
         ))
         .with_children(|main_tile| {
-            main_tile.spawn(Node::default()).with_children(|top_row| {
-                top_row.spawn((upper_left.clone(),));
-                top_row.spawn((upper_right.clone(),));
-            });
-
-            main_tile.spawn(Node::default()).with_children(|top_row| {
-                top_row.spawn((lower_left.clone(),));
-                top_row.spawn((lower_right.clone(),));
-            });
+            for matrix_row in matrix {
+                main_tile.spawn(Node::default()).with_children(|tile_row| {
+                    for item in matrix_row {
+                        tile_row.spawn((item.clone(),));
+                    }
+                });
+            }
         })
         .id();
+
     let horizontal_walkway_label_node = commands
         .spawn((
             Text::new(label),
