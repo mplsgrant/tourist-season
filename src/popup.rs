@@ -172,7 +172,7 @@ fn button_system(
 }
 
 enum PlaceableReason {
-    None,
+    NotPlaceable,
     Grass,
 }
 
@@ -245,7 +245,12 @@ fn pick_and_place(
                                     if existing_texture_idx.0 == ImgAsset::Grass.index() {
                                         Some((pos, texture_idx, entity, PlaceableReason::Grass))
                                     } else {
-                                        Some((pos, texture_idx, entity, PlaceableReason::None))
+                                        Some((
+                                            pos,
+                                            texture_idx,
+                                            entity,
+                                            PlaceableReason::NotPlaceable,
+                                        ))
                                     }
                                 } else {
                                     None
@@ -256,7 +261,7 @@ fn pick_and_place(
 
                     let is_placeable = if tiles_to_highlight.iter().any(|tile| match tile {
                         Some(tile) => match tile.3 {
-                            PlaceableReason::None => true,
+                            PlaceableReason::NotPlaceable => true,
                             PlaceableReason::Grass => false,
                         },
                         None => true,
