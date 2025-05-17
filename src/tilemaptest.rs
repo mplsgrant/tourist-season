@@ -272,6 +272,7 @@ pub fn update_cursor_pos(
     mut cursor_pos: ResMut<CursorPos>,
 ) {
     for cursor_moved in cursor_moved_events.read() {
+        //info!("{}", cursor_moved.position);
         // To get the mouse's world position, we have to transform its window position by
         // any transforms on the camera. This is done by projecting the cursor position into
         // camera space (world space).
@@ -286,6 +287,7 @@ pub fn update_cursor_pos(
 fn interact_with_tile(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     cur_tile_pos: Res<CurTilePos>,
+    world_pos: Res<CursorPos>,
     tilemap_q: Query<&TileStorage>,
     popup_q: Query<&Node, With<PopupBase>>,
 ) {
@@ -300,7 +302,10 @@ fn interact_with_tile(
         if let Ok(tile_storage) = tilemap_q.single() {
             if let Some(tile_entity) = tile_storage.get(&tile_pos) {
                 if mouse_button_input.just_pressed(MouseButton::Left) {
-                    info!("MY TILE: {tile_entity} {} {}", tile_pos.x, tile_pos.y);
+                    info!(
+                        "MY TILE: {tile_entity} {} {} {}",
+                        tile_pos.x, tile_pos.y, world_pos.0
+                    );
                 }
             }
         }

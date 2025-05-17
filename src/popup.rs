@@ -13,7 +13,7 @@ pub struct Popup;
 impl Plugin for Popup {
     fn build(&self, app: &mut App) {
         app.add_event::<PopupEvent>()
-            .add_systems(Startup, setup)
+            .add_systems(Startup, startup)
             .add_systems(Update, (button_system, pick_and_place, place_tiles));
     }
 }
@@ -30,7 +30,7 @@ pub enum TileType {
     BuildingA,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let popup_root = commands
         .spawn((
             Node {

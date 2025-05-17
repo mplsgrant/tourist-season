@@ -168,6 +168,19 @@ pub enum ImgAsset {
     WindowCreamPaneAlone,
     // Blue roof
     BlueRoofUpperLeft,
+    // Green tourist
+    GreenTouristStandingLeft,
+    GreenTouristStandingFront,
+    GreenTouristStandingBack,
+    GreenTouristStandingRight,
+    GreenTouristWalkingLeftA,
+    GreenTouristWalkingFrontA,
+    GreenTouristWalkingBackA,
+    GreenTouristWalkingRightA,
+    GreenTouristWalkingLeftB,
+    GreenTouristWalkingFrontB,
+    GreenTouristWalkingBackB,
+    GreenTouristWalkingRightB,
 }
 
 impl ImgAsset {
@@ -232,6 +245,18 @@ impl ImgAsset {
             ImgAsset::WindowCreamSlidingAloneBig => "RPGUrbanPack/tile_0391.png",
             ImgAsset::WindowCreamPaneAlone => "RPGUrbanPack/tile_0364.png",
             ImgAsset::BlueRoofUpperLeft => "RPGUrbanPack/tile_0081.png",
+            ImgAsset::GreenTouristStandingLeft => "RPGUrbanPack/tile_0023.png",
+            ImgAsset::GreenTouristStandingFront => "RPGUrbanPack/tile_0024.png",
+            ImgAsset::GreenTouristStandingBack => "RPGUrbanPack/tile_0025.png",
+            ImgAsset::GreenTouristStandingRight => "RPGUrbanPack/tile_0026.png",
+            ImgAsset::GreenTouristWalkingLeftA => "RPGUrbanPack/tile_0050.png",
+            ImgAsset::GreenTouristWalkingFrontA => "RPGUrbanPack/tile_0051.png",
+            ImgAsset::GreenTouristWalkingBackA => "RPGUrbanPack/tile_0052.png",
+            ImgAsset::GreenTouristWalkingRightA => "RPGUrbanPack/tile_0053.png",
+            ImgAsset::GreenTouristWalkingLeftB => "RPGUrbanPack/tile_0077.png",
+            ImgAsset::GreenTouristWalkingFrontB => "RPGUrbanPack/tile_0078.png",
+            ImgAsset::GreenTouristWalkingBackB => "RPGUrbanPack/tile_0079.png",
+            ImgAsset::GreenTouristWalkingRightB => "RPGUrbanPack/tile_0080.png",
         }
     }
 }
