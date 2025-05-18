@@ -12,6 +12,8 @@ miniscript = { version = "12.3.1", features = ["serde"] }
 bip39 = "2.1.0"
 bdk_wallet = { version = "1.2.0", features = ["rusqlite"] }
 
+pathfinding = "4.14.0"
+
 eyre = "0.6.12"
 
 directories = "5"

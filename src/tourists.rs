@@ -1,6 +1,8 @@
 use bevy::prelude::*;
+use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
+use pathfinding::{directed, grid::Grid, prelude::astar};
 
-use crate::constants::ImgAsset;
+use crate::constants::{ImgAsset, WALKABLES};
 
 pub struct Tourists;
 
@@ -17,8 +19,56 @@ struct SpawnTouristTimer(Timer);
 #[derive(Component)]
 pub struct Tourist;
 
-fn startup(mut commands: Commands) {
+#[derive(Component, Deref, DerefMut)]
+pub struct TouristGrid(Grid);
+
+fn startup(
+    mut commands: Commands,
+    tilemap_q: Query<&TileStorage>,
+    position_q: Query<(&TilePos, &TileTextureIndex)>,
+) {
     commands.spawn(SpawnTouristTimer(Timer::from_seconds(2.0, TimerMode::Once)));
+
+    let mut grid = Grid::new(128, 128);
+    for y in 0..128 {
+        for x in 0..128 {
+            grid.add_vertex((x, y));
+        }
+    }
+
+    tilemap_q
+        .iter()
+        .flat_map(|tile_storage| tile_storage.iter().filter_map(|e| *e))
+        .filter_map(|entity| position_q.get(entity).ok())
+        .filter(|(_, texture_idx)| WALKABLES.iter().any(|x| x == &texture_idx.0))
+        .for_each(|(tile_pos, _)| {
+            grid.remove_vertex((tile_pos.x as usize, tile_pos.y as usize));
+        });
+
+    // Define the start and goal positions
+    let start = (0, 0);
+    let goal = (4, 4);
+
+    // Run A* algorithm
+    let result = astar(
+        &start,
+        |p| {
+            grid.neighbours(*p).into_iter().map(|n| (n, 1)) // cost of 1 per move
+        },
+        |p| {
+            ((p.0 as isize - goal.0 as isize).abs() + (p.1 as isize - goal.1 as isize).abs()) as u32
+        }, // Manhattan distance
+        |p| *p == goal,
+    );
+
+    match result {
+        Some((path, cost)) => {
+            info!("Found path with cost {}: {:?}", cost, path);
+        }
+        None => {
+            info!("No path found!");
+        }
+    }
 }
 
 fn tourist_spawner(
@@ -49,3 +99,5 @@ fn tourist_spawner(
         }
     }
 }
+
+fn move_tourist() {}

@@ -98,7 +98,7 @@ pub struct PopupBase;
 #[derive(Copy, Clone, Debug, EnumIter)]
 #[repr(u32)]
 pub enum ImgAsset {
-    // Grass
+    // Grass (walkable)
     Grass,
     GrassBorderUpperLeft,
     GrassBorderUpper,
@@ -260,3 +260,16 @@ impl ImgAsset {
         }
     }
 }
+
+pub const WALKABLES: [u32; 10] = [
+    ImgAsset::Grass.index(),
+    ImgAsset::GrassBorderUpperLeft.index(),
+    ImgAsset::GrassBorderUpper.index(),
+    ImgAsset::GrassBorderUpperRight.index(),
+    ImgAsset::GrassBorderLeft.index(),
+    ImgAsset::Dirt.index(),
+    ImgAsset::GrassBorderRight.index(),
+    ImgAsset::GrassBorderLowerLeft.index(),
+    ImgAsset::GrassBorderLower.index(),
+    ImgAsset::GrassBorderLowerRight.index(),
+];

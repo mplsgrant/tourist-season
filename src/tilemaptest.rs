@@ -53,15 +53,15 @@ pub enum GameMapEvent {
 
 #[derive(Component, Clone, Default, Serialize, Deserialize)]
 pub struct TileBuddies {
-    pub buddies: Option<HashSet<Buddy>>,
+    pub buddies: HashSet<TilePos>,
 }
 
-#[derive(Clone, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct Buddy {
-    pub x: i32,
-    pub y: i32,
-    pub texture_index: TileTextureIndex,
-}
+// #[derive(Clone, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
+// pub struct Buddy {
+//     pub x: i32,
+//     pub y: i32,
+//     pub texture_index: TileTextureIndex,
+// }
 
 #[derive(
     Component,
@@ -115,7 +115,6 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
     // it is associated with. This is done with the TilemapId component on each tile.
     let tilemap_entity = commands.spawn_empty().id();
 
-    // Load map
     let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
 
     let map: Vec<TileValues> = if let Ok(map) = fs::read_to_string(&map_json_file) {
