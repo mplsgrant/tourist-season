@@ -111,6 +111,7 @@ pub enum ImgAsset {
     SidewalkBottomLeft,
     SidewalkBottom,
     SidewalkLeft,
+    SidewalkRight,
     SidewalkTopLeft,
     SidewalkTop,
 }
@@ -196,6 +197,7 @@ impl ImgAsset {
             ImgAsset::SidewalkBottomLeft => "RPGUrbanPack/tile_0062.png",
             ImgAsset::SidewalkBottom => "RPGUrbanPack/tile_0063.png",
             ImgAsset::SidewalkLeft => "RPGUrbanPack/tile_0035.png",
+            ImgAsset::SidewalkRight => "RPGUrbanPack/tile_0037.png",
             ImgAsset::SidewalkTopLeft => "RPGUrbanPack/tile_0008.png",
             ImgAsset::SidewalkTop => "RPGUrbanPack/tile_0009.png",
             ImgAsset::Sidewalk => "RPGUrbanPack/tile_0036.png",
@@ -203,7 +205,7 @@ impl ImgAsset {
     }
 }
 
-pub const WALKABLES: [u32; 10] = [
+pub const WALKABLES: [u32; 16] = [
     ImgAsset::Grass.index(),
     ImgAsset::GrassBorderUpperLeft.index(),
     ImgAsset::GrassBorderUpper.index(),
@@ -214,4 +216,10 @@ pub const WALKABLES: [u32; 10] = [
     ImgAsset::GrassBorderLowerLeft.index(),
     ImgAsset::GrassBorderLower.index(),
     ImgAsset::GrassBorderLowerRight.index(),
+    ImgAsset::Sidewalk.index(),
+    ImgAsset::SidewalkBottom.index(),
+    ImgAsset::SidewalkBottomLeft.index(),
+    ImgAsset::SidewalkLeft.index(),
+    ImgAsset::SidewalkTop.index(),
+    ImgAsset::SidewalkTopLeft.index(),
 ];

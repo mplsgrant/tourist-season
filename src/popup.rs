@@ -4,7 +4,7 @@
 use crate::{
     constants::{ImgAsset, PopupBase},
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
-    tourists::TouristSpawnPoint,
+    tourists::{TouristDespawnPoint, TouristSpawnPoint},
 };
 use bevy::{color::palettes::basic::*, prelude::*};
 use bevy_ecs_tilemap::tiles::{TileColor, TilePos, TileStorage, TileTextureIndex};
@@ -26,6 +26,7 @@ impl Plugin for Popup {
 #[derive(Clone)]
 pub enum AddOnComponents {
     TouristSpawnPoint,
+    TouristDespawnPoint,
 }
 
 #[derive(Event, Clone)]
@@ -46,6 +47,7 @@ pub enum PopupMenuTileType {
     BuildingA,
     Grass,
     Entrypoint,
+    DespawnPoint,
 }
 
 fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -113,7 +115,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
     /////////////////
 
-    // WALKWAY
+    // Spawnpoint
     let entrypoint_label = "Entrypoint";
     let sidewalk = ImageNode::new(asset_server.load(ImgAsset::Sidewalk.path()));
 
@@ -122,6 +124,23 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         entrypoint_label,
         my_tile,
         PopupMenuTileType::Entrypoint,
+        &mut commands,
+    );
+    /////////////////
+
+    // Despawn Point
+    let despawn_label = "Despawn Point";
+    let sidewalk_left = ImageNode::new(asset_server.load(ImgAsset::SidewalkLeft.path()));
+    let sidewalk_right = ImageNode::new(asset_server.load(ImgAsset::SidewalkLeft.path()));
+
+    let my_tile = [
+        [&sidewalk_left, &sidewalk_right],
+        [&sidewalk_left, &sidewalk_right],
+    ];
+    let (despawn_tile_node, despawn_label_node) = matrix_to_tile_nodes(
+        despawn_label,
+        my_tile,
+        PopupMenuTileType::DespawnPoint,
         &mut commands,
     );
     /////////////////
@@ -137,6 +156,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_children(&[building_a_tile_node, building_a_label_node])
         .add_children(&[grass_tile_node, grass_label_node])
         .add_children(&[entrypoint_tile_node, entrypoint_label_node])
+        .add_children(&[despawn_tile_node, despawn_label_node])
         .id();
 
     commands.entity(popup_root).add_child(container);
@@ -329,6 +349,55 @@ fn button_system(
 
                         commands.spawn((
                             Sprite::from_image(asset_server.load(ImgAsset::SidewalkLeft.path())),
+                            picked_item,
+                            Transform::from_xyz(50., 50., 1.),
+                            GlobalZIndex(5),
+                        ));
+                    }
+                    PopupMenuTileType::DespawnPoint => {
+                        let picked_item = PopupItem {
+                            alpha_texture_idx: TileTextureIndex(
+                                ImgAsset::SidewalkBottomLeft.index(),
+                            ),
+                            relative_pos_and_idx: vec![
+                                (
+                                    TilePos { x: 1, y: 0 },
+                                    TileTextureIndex(ImgAsset::SidewalkBottom.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 0 },
+                                    TileTextureIndex(ImgAsset::SidewalkBottom.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 1 },
+                                    TileTextureIndex(ImgAsset::SidewalkLeft.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 1 },
+                                    TileTextureIndex(ImgAsset::Sidewalk.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 1 },
+                                    TileTextureIndex(ImgAsset::Sidewalk.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 2 },
+                                    TileTextureIndex(ImgAsset::SidewalkTopLeft.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 2 },
+                                    TileTextureIndex(ImgAsset::SidewalkTop.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 2 },
+                                    TileTextureIndex(ImgAsset::SidewalkTop.index()),
+                                ),
+                            ],
+                            add_on_components: vec![AddOnComponents::TouristDespawnPoint],
+                        };
+
+                        commands.spawn((
+                            Sprite::from_image(asset_server.load(ImgAsset::Sidewalk.path())),
                             picked_item,
                             Transform::from_xyz(50., 50., 1.),
                             GlobalZIndex(5),
@@ -574,6 +643,11 @@ fn place_tiles(
                         commands
                             .entity(event.clicked_entity)
                             .insert(TouristSpawnPoint);
+                    }
+                    AddOnComponents::TouristDespawnPoint => {
+                        commands
+                            .entity(event.clicked_entity)
+                            .insert(TouristDespawnPoint);
                     }
                 }
             }

@@ -28,6 +28,9 @@ pub struct TouristGrid(Grid);
 #[derive(Component)]
 pub struct TouristSpawnPoint;
 
+#[derive(Component)]
+pub struct TouristDespawnPoint;
+
 fn startup(
     mut commands: Commands,
     tilemap_q: Query<&TileStorage>,
