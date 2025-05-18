@@ -1,5 +1,6 @@
 use bdk_button::BDKButton;
 use bevy::prelude::*;
+use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use bitcoind::BitcoindHandler;
 use popup::Popup;
 use tilemaptest::GameMap;
@@ -23,5 +24,9 @@ fn main() {
         .add_plugins(BitcoindHandler)
         .add_plugins(Popup)
         .add_plugins(Tourists)
+        // .add_plugins(EguiPlugin {
+        //     enable_multipass_for_primary_context: true,
+        // })
+        // .add_plugins(WorldInspectorPlugin::new())
         .run();
 }

@@ -27,6 +27,7 @@ clap = "4.5.37"
 bevy = { version = "0.16.0", features = ["bevy_render", "bevy_gizmos", "dynamic_linking"] }
 
 bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap/", rev = "c2c1d076bd70d132edb6410e835a2ba6bdbaab5c", features = ["serde"] }
+bevy-inspector-egui = "0.31.0"
 ldtk_rust = { version = "0.6" }
 tiled = { version = "0.14.0"}
 thiserror = { version = "1.0" }

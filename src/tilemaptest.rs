@@ -1,6 +1,7 @@
 use crate::{
     bdk_zone::get_data_dir,
     constants::{ImgAsset, MAP_DIR, MAP_JSON, PopupBase, Z_TILEMAP},
+    tourists::{TouristDespawnPoint, TouristSpawnPoint},
 };
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
@@ -51,17 +52,10 @@ pub enum GameMapEvent {
     Save,
 }
 
-#[derive(Component, Clone, Default, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TileBuddies {
     pub buddies: HashSet<TilePos>,
 }
-
-// #[derive(Clone, Default, Eq, PartialEq, Hash, Serialize, Deserialize)]
-// pub struct Buddy {
-//     pub x: i32,
-//     pub y: i32,
-//     pub texture_index: TileTextureIndex,
-// }
 
 #[derive(
     Component,
@@ -80,12 +74,14 @@ pub struct TileBuddies {
 )]
 pub struct AlphaPos(pub TilePos);
 
-#[derive(Component, Clone, Default, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TileValues {
     pub pos: TilePos,
     pub alpha_pos: AlphaPos,
     pub texture_index: TileTextureIndex,
     pub buddies: TileBuddies,
+    pub spawnpoint: Option<TouristSpawnPoint>,
+    pub despawnpoint: Option<TouristDespawnPoint>,
 }
 
 fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -129,6 +125,8 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
                     alpha_pos: AlphaPos(TilePos { x, y }), // alpha can be self
                     texture_index: TileTextureIndex(ImgAsset::Grass.index()),
                     buddies: TileBuddies::default(),
+                    spawnpoint: None,
+                    despawnpoint: None,
                 };
                 map.push(value);
             }
@@ -136,8 +134,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
         map
     };
 
-    // Spawn a 32 by 32 tilemap.
-    // Alternatively, you can use helpers::fill_tilemap.
+    info!("Maybe spawnpoint");
     for tile_values in map {
         let tile_entity = commands
             .spawn((
@@ -151,7 +148,15 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
                 tile_values.alpha_pos,
             ))
             .id();
-        // Here we let the tile storage component know what tiles we have.
+
+        if let Some(spawnpoint) = tile_values.spawnpoint {
+            info!("Loaded a spawnpoint");
+            commands.entity(tile_entity).insert(spawnpoint);
+        }
+        if let Some(despawnpoint) = tile_values.despawnpoint {
+            info!("Loaded a despawnpoint");
+            commands.entity(tile_entity).insert(despawnpoint);
+        }
         tile_storage.set(&tile_values.pos, tile_entity);
     }
 
@@ -187,19 +192,50 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
 
 fn save_tilemap(
     mut tilemap_e: EventReader<GameMapEvent>,
-    tilemap_q: Query<(&TilePos, &AlphaPos, &TileTextureIndex, &TileBuddies)>,
+    tilemap_q: Query<(
+        &TilePos,
+        &AlphaPos,
+        &TileTextureIndex,
+        &TileBuddies,
+        Option<&TouristSpawnPoint>,
+        Option<&TouristDespawnPoint>,
+    )>,
 ) {
+    let test = TouristSpawnPoint {};
+    // info!(
+    //     "JSON of spawnpoint: {}",
+    //     serde_json::to_string(&Some(test)).unwrap()
+    // );
+
     for tilemap_event in tilemap_e.read() {
         match tilemap_event {
             GameMapEvent::Save => {
                 let items: Vec<TileValues> = tilemap_q
                     .iter()
-                    .map(|(pos, alpha_pos, idx, buddies)| TileValues {
-                        pos: *pos,
-                        alpha_pos: *alpha_pos,
-                        texture_index: *idx,
-                        buddies: buddies.clone(),
-                    })
+                    .map(
+                        |(pos, alpha_pos, idx, buddies, maybe_spawn_point, maybe_despawn_point)| {
+                            let spawnpoint = if let Some(spawnpoint) = maybe_spawn_point {
+                                info!("Spawnpoint saving: {pos:?}");
+                                Some(spawnpoint.clone())
+                            } else {
+                                None
+                            };
+                            let despawnpoint = if let Some(despawnpoint) = maybe_despawn_point {
+                                info!("Despawnpoint saving: {pos:?}");
+                                Some(despawnpoint.clone())
+                            } else {
+                                None
+                            };
+                            TileValues {
+                                pos: *pos,
+                                alpha_pos: *alpha_pos,
+                                texture_index: *idx,
+                                buddies: buddies.clone(),
+                                spawnpoint,
+                                despawnpoint,
+                            }
+                        },
+                    )
                     .collect();
                 let json_items = serde_json::to_string(&items).unwrap();
                 let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
@@ -314,9 +350,20 @@ fn interact_with_tile(
 pub fn tilepos_to_transform(tile_pos: &TilePos, fudge: Vec2, z: f32) -> Transform {
     let tile_size = 16.0;
     let map_size = 128.0;
+
     Transform::from_xyz(
         (tile_pos.x as f32 - map_size / 2.0) * tile_size + fudge.x,
         (tile_pos.y as f32 - map_size / 2.0) * tile_size + fudge.y,
         z,
     )
+}
+
+pub fn transform_to_tilepos(transform: &Transform, fudge: Vec2) -> TilePos {
+    let tile_size = 16.0;
+    let map_size = 128.0;
+
+    let x = ((transform.translation.x - fudge.x) / tile_size + map_size / 2.0).floor() as u32;
+    let y = ((transform.translation.y - fudge.y) / tile_size + map_size / 2.0).floor() as u32;
+
+    TilePos { x, y }
 }

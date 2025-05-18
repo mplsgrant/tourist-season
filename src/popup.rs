@@ -23,17 +23,10 @@ impl Plugin for Popup {
     }
 }
 
-#[derive(Clone)]
-pub enum AddOnComponents {
-    TouristSpawnPoint,
-    TouristDespawnPoint,
-}
-
-#[derive(Event, Clone)]
+#[derive(Event, Clone, Debug)]
 pub struct PopupEvent {
-    clicked_entity: Entity,
-    tile_values: TileValues,
-    add_on_components: Vec<AddOnComponents>,
+    pub clicked_entity: Entity,
+    pub tile_values: TileValues,
 }
 
 #[derive(Event, Clone)]
@@ -130,8 +123,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Despawn Point
     let despawn_label = "Despawn Point";
-    let sidewalk_left = ImageNode::new(asset_server.load(ImgAsset::SidewalkLeft.path()));
-    let sidewalk_right = ImageNode::new(asset_server.load(ImgAsset::SidewalkLeft.path()));
+    let sidewalk_left = ImageNode::new(asset_server.load(ImgAsset::Sidewalk.path()));
+    let sidewalk_right = ImageNode::new(asset_server.load(ImgAsset::Sidewalk.path()));
 
     let my_tile = [
         [&sidewalk_left, &sidewalk_right],
@@ -209,7 +202,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 pub struct PopupItem {
     pub alpha_texture_idx: TileTextureIndex,
     pub relative_pos_and_idx: Vec<(TilePos, TileTextureIndex)>,
-    pub add_on_components: Vec<AddOnComponents>,
+    pub spawnpoint: Option<TouristSpawnPoint>,
+    pub despawnpoint: Option<TouristDespawnPoint>,
 }
 
 fn button_system(
@@ -244,7 +238,8 @@ fn button_system(
                                     TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
                                 ),
                             ],
-                            add_on_components: vec![],
+                            spawnpoint: None,
+                            despawnpoint: None,
                         };
 
                         commands.spawn((
@@ -281,7 +276,8 @@ fn button_system(
                                     TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
                                 ),
                             ],
-                            add_on_components: vec![],
+                            spawnpoint: None,
+                            despawnpoint: None,
                         };
 
                         commands.spawn((
@@ -295,7 +291,8 @@ fn button_system(
                         let picked_item = PopupItem {
                             alpha_texture_idx: TileTextureIndex(ImgAsset::Grass.index()),
                             relative_pos_and_idx: vec![],
-                            add_on_components: vec![],
+                            spawnpoint: None,
+                            despawnpoint: None,
                         };
 
                         commands.spawn((
@@ -344,7 +341,8 @@ fn button_system(
                                     TileTextureIndex(ImgAsset::SidewalkTop.index()),
                                 ),
                             ],
-                            add_on_components: vec![AddOnComponents::TouristSpawnPoint],
+                            spawnpoint: Some(TouristSpawnPoint {}),
+                            despawnpoint: None,
                         };
 
                         commands.spawn((
@@ -370,7 +368,7 @@ fn button_system(
                                 ),
                                 (
                                     TilePos { x: 0, y: 1 },
-                                    TileTextureIndex(ImgAsset::SidewalkLeft.index()),
+                                    TileTextureIndex(ImgAsset::Sidewalk.index()),
                                 ),
                                 (
                                     TilePos { x: 1, y: 1 },
@@ -393,7 +391,8 @@ fn button_system(
                                     TileTextureIndex(ImgAsset::SidewalkTop.index()),
                                 ),
                             ],
-                            add_on_components: vec![AddOnComponents::TouristDespawnPoint],
+                            spawnpoint: None,
+                            despawnpoint: Some(TouristDespawnPoint {}),
                         };
 
                         commands.spawn((
@@ -589,8 +588,9 @@ fn pick_and_place(
                                                 alpha_pos: AlphaPos(active_tile_pos),
                                                 texture_index: **texture_idx,
                                                 buddies: tile_buddies.clone(),
+                                                spawnpoint: popup_item.spawnpoint.clone(),
+                                                despawnpoint: popup_item.despawnpoint.clone(),
                                             },
-                                            add_on_components: popup_item.add_on_components.clone(),
                                         }
                                     } else {
                                         // Setting a buddy tile
@@ -601,8 +601,9 @@ fn pick_and_place(
                                                 alpha_pos: AlphaPos(active_tile_pos),
                                                 texture_index: **texture_idx,
                                                 buddies: TileBuddies::default(),
+                                                spawnpoint: None,
+                                                despawnpoint: None,
                                             },
-                                            add_on_components: vec![],
                                         }
                                     }
                                 })
@@ -636,26 +637,33 @@ fn place_tiles(
             *alpha_pos = event.tile_values.alpha_pos;
             *texture_idx = event.tile_values.texture_index;
 
-            // Alpha tiles may have add_on_components
-            for add_on in &event.add_on_components {
-                match add_on {
-                    AddOnComponents::TouristSpawnPoint => {
-                        commands
-                            .entity(event.clicked_entity)
-                            .insert(TouristSpawnPoint);
-                    }
-                    AddOnComponents::TouristDespawnPoint => {
-                        commands
-                            .entity(event.clicked_entity)
-                            .insert(TouristDespawnPoint);
-                    }
-                }
+            if event.tile_values.spawnpoint.is_some() {
+                commands
+                    .entity(event.clicked_entity)
+                    .insert(TouristSpawnPoint {});
+                info!("Placed spawnpoint");
+            } else {
+                commands
+                    .entity(event.clicked_entity)
+                    .remove::<TouristSpawnPoint>();
+            }
+
+            if event.tile_values.despawnpoint.is_some() {
+                commands
+                    .entity(event.clicked_entity)
+                    .insert(TouristDespawnPoint {});
+                info!("Placed despawnpoint");
+            } else {
+                commands
+                    .entity(event.clicked_entity)
+                    .remove::<TouristDespawnPoint>();
             }
         }
     }
 }
 
 fn erase_tiles(
+    mut commands: Commands,
     mut eraser_e: EventReader<EraserEvent>,
     mut tiles_q: Query<(
         &TilePos,
@@ -672,6 +680,9 @@ fn erase_tiles(
                 *buddies = TileBuddies::default();
                 *alpha_pos = AlphaPos(*tile_pos);
                 *texture_idx = TileTextureIndex(ImgAsset::Grass.index());
+
+                commands.entity(*entity).remove::<TouristSpawnPoint>();
+                commands.entity(*entity).remove::<TouristDespawnPoint>();
             }
         }
     }
