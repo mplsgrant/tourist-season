@@ -181,6 +181,18 @@ pub enum ImgAsset {
     GreenTouristWalkingFrontB,
     GreenTouristWalkingBackB,
     GreenTouristWalkingRightB,
+    // Poles
+    GreenPoleBottom,
+    GreenPoleTop,
+    BluePedestrianPoleBottom,
+    BluePedestrianPoleTop,
+    // Sidewalk
+    Sidewalk,
+    SidewalkBottomLeft,
+    SidewalkBottom,
+    SidewalkLeft,
+    SidewalkTopLeft,
+    SidewalkTop,
 }
 
 impl ImgAsset {
@@ -257,6 +269,16 @@ impl ImgAsset {
             ImgAsset::GreenTouristWalkingFrontB => "RPGUrbanPack/tile_0078.png",
             ImgAsset::GreenTouristWalkingBackB => "RPGUrbanPack/tile_0079.png",
             ImgAsset::GreenTouristWalkingRightB => "RPGUrbanPack/tile_0080.png",
+            ImgAsset::GreenPoleBottom => "RPGUrbanPack/tile_0196.png",
+            ImgAsset::GreenPoleTop => "RPGUrbanPack/tile_0169.png",
+            ImgAsset::BluePedestrianPoleBottom => "RPGUrbanPack/tile_0195.png",
+            ImgAsset::BluePedestrianPoleTop => "RPGUrbanPack/tile_0168.png",
+            ImgAsset::SidewalkBottomLeft => "RPGUrbanPack/tile_0062.png",
+            ImgAsset::SidewalkBottom => "RPGUrbanPack/tile_0063.png",
+            ImgAsset::SidewalkLeft => "RPGUrbanPack/tile_0035.png",
+            ImgAsset::SidewalkTopLeft => "RPGUrbanPack/tile_0008.png",
+            ImgAsset::SidewalkTop => "RPGUrbanPack/tile_0009.png",
+            ImgAsset::Sidewalk => "RPGUrbanPack/tile_0036.png",
         }
     }
 }

@@ -4,6 +4,7 @@
 use crate::{
     constants::{ImgAsset, PopupBase},
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
+    tourists::TouristSpawnPoint,
 };
 use bevy::{color::palettes::basic::*, prelude::*};
 use bevy_ecs_tilemap::tiles::{TileColor, TilePos, TileStorage, TileTextureIndex};
@@ -22,10 +23,16 @@ impl Plugin for Popup {
     }
 }
 
+#[derive(Clone)]
+pub enum AddOnComponents {
+    TouristSpawnPoint,
+}
+
 #[derive(Event, Clone)]
 pub struct PopupEvent {
-    entity: Entity,
+    clicked_entity: Entity,
     tile_values: TileValues,
+    add_on_components: Vec<AddOnComponents>,
 }
 
 #[derive(Event, Clone)]
@@ -34,10 +41,11 @@ pub struct EraserEvent {
 }
 
 #[derive(Component, Clone, Copy)]
-pub enum TileType {
+pub enum PopupMenuTileType {
     HorizontalPath,
     BuildingA,
     Grass,
+    Entrypoint,
 }
 
 fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -63,8 +71,12 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let grass = ImageNode::new(asset_server.load(ImgAsset::Grass.path()));
 
     let my_tile = [[&grass]];
-    let (grass_tile_node, grass_label_node) =
-        matrix_to_tile_nodes(building_a_label, my_tile, TileType::Grass, &mut commands);
+    let (grass_tile_node, grass_label_node) = matrix_to_tile_nodes(
+        building_a_label,
+        my_tile,
+        PopupMenuTileType::Grass,
+        &mut commands,
+    );
     /////////////////
 
     // BUILDING A
@@ -79,7 +91,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (building_a_tile_node, building_a_label_node) = matrix_to_tile_nodes(
         building_a_label,
         my_tile,
-        TileType::BuildingA,
+        PopupMenuTileType::BuildingA,
         &mut commands,
     );
     ///////////////
@@ -96,7 +108,20 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = matrix_to_tile_nodes(
         horizontal_walkway_label,
         my_tile,
-        TileType::HorizontalPath,
+        PopupMenuTileType::HorizontalPath,
+        &mut commands,
+    );
+    /////////////////
+
+    // WALKWAY
+    let entrypoint_label = "Entrypoint";
+    let sidewalk = ImageNode::new(asset_server.load(ImgAsset::Sidewalk.path()));
+
+    let my_tile = [[&sidewalk, &sidewalk], [&sidewalk, &sidewalk]];
+    let (entrypoint_tile_node, entrypoint_label_node) = matrix_to_tile_nodes(
+        entrypoint_label,
+        my_tile,
+        PopupMenuTileType::Entrypoint,
         &mut commands,
     );
     /////////////////
@@ -111,6 +136,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_children(&[horizontal_walkway_tile_node, horizontal_walkway_label_node])
         .add_children(&[building_a_tile_node, building_a_label_node])
         .add_children(&[grass_tile_node, grass_label_node])
+        .add_children(&[entrypoint_tile_node, entrypoint_label_node])
         .id();
 
     commands.entity(popup_root).add_child(container);
@@ -163,12 +189,13 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 pub struct PopupItem {
     pub alpha_texture_idx: TileTextureIndex,
     pub relative_pos_and_idx: Vec<(TilePos, TileTextureIndex)>,
+    pub add_on_components: Vec<AddOnComponents>,
 }
 
 fn button_system(
     mut commands: Commands,
     mut interaction_query: Query<
-        (&Interaction, &mut Outline, &TileType),
+        (&Interaction, &mut Outline, &PopupMenuTileType),
         (Changed<Interaction>, With<Button>),
     >,
     asset_server: Res<AssetServer>,
@@ -180,7 +207,7 @@ fn button_system(
                 outline.color = RED.into();
 
                 match tile_type {
-                    TileType::HorizontalPath => {
+                    PopupMenuTileType::HorizontalPath => {
                         let picked_item = PopupItem {
                             alpha_texture_idx: TileTextureIndex(ImgAsset::GrassBorderLower.index()),
                             relative_pos_and_idx: vec![
@@ -197,6 +224,7 @@ fn button_system(
                                     TileTextureIndex(ImgAsset::GrassBorderUpper.index()),
                                 ),
                             ],
+                            add_on_components: vec![],
                         };
 
                         commands.spawn((
@@ -208,7 +236,7 @@ fn button_system(
                             GlobalZIndex(5),
                         ));
                     }
-                    TileType::BuildingA => {
+                    PopupMenuTileType::BuildingA => {
                         let picked_item = PopupItem {
                             alpha_texture_idx: TileTextureIndex(ImgAsset::RedBrickColLower.index()),
                             relative_pos_and_idx: vec![
@@ -233,6 +261,7 @@ fn button_system(
                                     TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
                                 ),
                             ],
+                            add_on_components: vec![],
                         };
 
                         commands.spawn((
@@ -242,14 +271,64 @@ fn button_system(
                             GlobalZIndex(5),
                         ));
                     }
-                    TileType::Grass => {
+                    PopupMenuTileType::Grass => {
                         let picked_item = PopupItem {
                             alpha_texture_idx: TileTextureIndex(ImgAsset::Grass.index()),
                             relative_pos_and_idx: vec![],
+                            add_on_components: vec![],
                         };
 
                         commands.spawn((
                             Sprite::from_image(asset_server.load(ImgAsset::Grass.path())),
+                            picked_item,
+                            Transform::from_xyz(50., 50., 1.),
+                            GlobalZIndex(5),
+                        ));
+                    }
+                    PopupMenuTileType::Entrypoint => {
+                        let picked_item = PopupItem {
+                            alpha_texture_idx: TileTextureIndex(
+                                ImgAsset::SidewalkBottomLeft.index(),
+                            ),
+                            relative_pos_and_idx: vec![
+                                (
+                                    TilePos { x: 1, y: 0 },
+                                    TileTextureIndex(ImgAsset::SidewalkBottom.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 0 },
+                                    TileTextureIndex(ImgAsset::SidewalkBottom.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 1 },
+                                    TileTextureIndex(ImgAsset::SidewalkLeft.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 1 },
+                                    TileTextureIndex(ImgAsset::Sidewalk.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 1 },
+                                    TileTextureIndex(ImgAsset::Sidewalk.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 2 },
+                                    TileTextureIndex(ImgAsset::SidewalkTopLeft.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 2 },
+                                    TileTextureIndex(ImgAsset::SidewalkTop.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 2 },
+                                    TileTextureIndex(ImgAsset::SidewalkTop.index()),
+                                ),
+                            ],
+                            add_on_components: vec![AddOnComponents::TouristSpawnPoint],
+                        };
+
+                        commands.spawn((
+                            Sprite::from_image(asset_server.load(ImgAsset::SidewalkLeft.path())),
                             picked_item,
                             Transform::from_xyz(50., 50., 1.),
                             GlobalZIndex(5),
@@ -433,24 +512,28 @@ fn pick_and_place(
                                     let mut color = color_q.get_mut(*entity).unwrap();
                                     color.0 = Color::srgba(0.0, 1.0, 0.5, 0.5); // GREEN
                                     if pos == &active_tile_pos {
+                                        // Setting an alpha tile
                                         PopupEvent {
-                                            entity: *entity,
+                                            clicked_entity: *entity,
                                             tile_values: TileValues {
                                                 pos: *pos,
                                                 alpha_pos: AlphaPos(active_tile_pos),
                                                 texture_index: **texture_idx,
                                                 buddies: tile_buddies.clone(),
                                             },
+                                            add_on_components: popup_item.add_on_components.clone(),
                                         }
                                     } else {
+                                        // Setting a buddy tile
                                         PopupEvent {
-                                            entity: *entity,
+                                            clicked_entity: *entity,
                                             tile_values: TileValues {
                                                 pos: *pos,
                                                 alpha_pos: AlphaPos(active_tile_pos),
                                                 texture_index: **texture_idx,
                                                 buddies: TileBuddies::default(),
                                             },
+                                            add_on_components: vec![],
                                         }
                                     }
                                 })
@@ -471,14 +554,29 @@ fn pick_and_place(
 }
 
 fn place_tiles(
+    mut commands: Commands,
     mut popup_e: EventReader<PopupEvent>,
     mut tiles_q: Query<(&mut TileBuddies, &mut AlphaPos, &mut TileTextureIndex)>,
 ) {
     for event in popup_e.read() {
-        if let Ok((mut buddies, mut alpha_pos, mut texture_idx)) = tiles_q.get_mut(event.entity) {
+        if let Ok((mut buddies, mut alpha_pos, mut texture_idx)) =
+            tiles_q.get_mut(event.clicked_entity)
+        {
+            // Update the tile
             *buddies = event.tile_values.buddies.clone();
             *alpha_pos = event.tile_values.alpha_pos;
             *texture_idx = event.tile_values.texture_index;
+
+            // Alpha tiles may have add_on_components
+            for add_on in &event.add_on_components {
+                match add_on {
+                    AddOnComponents::TouristSpawnPoint => {
+                        commands
+                            .entity(event.clicked_entity)
+                            .insert(TouristSpawnPoint);
+                    }
+                }
+            }
         }
     }
 }
@@ -508,7 +606,7 @@ fn erase_tiles(
 fn matrix_to_tile_nodes<'a, I, J>(
     label: &str,
     matrix: I,
-    tile_type: TileType,
+    tile_type: PopupMenuTileType,
     commands: &mut Commands,
 ) -> (Entity, Entity)
 where

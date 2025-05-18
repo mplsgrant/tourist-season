@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
 use pathfinding::{directed, grid::Grid, prelude::astar};
 
-use crate::constants::{ImgAsset, WALKABLES};
+use crate::{
+    constants::{ImgAsset, WALKABLES},
+    tilemaptest::tilepos_to_transform,
+};
 
 pub struct Tourists;
 
@@ -21,6 +24,9 @@ pub struct Tourist;
 
 #[derive(Component, Deref, DerefMut)]
 pub struct TouristGrid(Grid);
+
+#[derive(Component)]
+pub struct TouristSpawnPoint;
 
 fn startup(
     mut commands: Commands,
@@ -73,29 +79,29 @@ fn startup(
 
 fn tourist_spawner(
     mut commands: Commands,
-    mut query: Query<&mut SpawnTouristTimer>,
+    mut spawn_tourist_timer: Query<&mut SpawnTouristTimer>,
     time: Res<Time>,
     asset_server: Res<AssetServer>,
+    spawnpoint_q: Query<&TilePos, With<TouristSpawnPoint>>,
 ) {
-    for mut timer in &mut query {
+    for mut timer in &mut spawn_tourist_timer {
         if timer.tick(time.delta()).just_finished() {
-            let _ = commands
-                .spawn((
-                    Sprite::from_image(
-                        asset_server.load(ImgAsset::GreenTouristStandingFront.path()),
-                    ),
-                    Tourist,
-                    Transform {
-                        translation: Vec3 {
-                            x: 100.0,
-                            y: 100.0,
-                            z: 3.0,
-                        },
-                        ..Default::default()
-                    },
-                    GlobalZIndex(6),
-                ))
-                .id();
+            for tile_pos in spawnpoint_q.iter() {
+                let transform = tilepos_to_transform(tile_pos, Vec2 { x: 50.0, y: 50.0 }, 6.0);
+                info!("Tourist at: {transform:?}");
+
+                let _ = commands
+                    .spawn((
+                        Sprite::from_image(
+                            asset_server.load(ImgAsset::GreenTouristStandingFront.path()),
+                        ),
+                        Tourist,
+                        transform,
+                        GlobalZIndex(6),
+                    ))
+                    .id();
+            }
+            timer.reset();
         }
     }
 }

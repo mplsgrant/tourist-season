@@ -310,3 +310,13 @@ fn interact_with_tile(
         }
     }
 }
+
+pub fn tilepos_to_transform(tile_pos: &TilePos, fudge: Vec2, z: f32) -> Transform {
+    let tile_size = 16.0;
+    let map_size = 128.0;
+    Transform::from_xyz(
+        (tile_pos.x as f32 - map_size / 2.0) * tile_size + fudge.x,
+        (tile_pos.y as f32 - map_size / 2.0) * tile_size + fudge.y,
+        z,
+    )
+}
