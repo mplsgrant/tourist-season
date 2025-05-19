@@ -1,10 +1,13 @@
 #![allow(clippy::type_complexity)]
 
 use crate::{
-    bdk_zone::get_segwit_challenge, constants::PopupBase, popup::PopupItem,
-    tilemaptest::GameMapEvent,
+    bdk_zone::get_segwit_challenge,
+    constants::PopupBase,
+    popup::PopupItem,
+    tilemaptest::{DisableTileInteraction, GameMapEvent},
 };
 use bevy::{color::palettes::basic::*, prelude::*};
+use bevy_ecs_tilemap::tiles::TileColor;
 
 pub struct BDKButton;
 
@@ -39,8 +42,10 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
     mut popup_q: Query<&mut Node, With<PopupBase>>,
+    mut disable_tilemap: ResMut<DisableTileInteraction>,
     mut picked_q: Query<(Entity, &PopupItem)>,
     mut tilemap_e: EventWriter<GameMapEvent>,
+    mut color_q: Query<&mut TileColor>,
 ) {
     for (interaction, mut color, mut border_color, children, button_action) in
         &mut interaction_query
@@ -48,9 +53,27 @@ fn button_system(
         match button_action {
             ButtonAction::Save => match *interaction {
                 Interaction::Pressed => {
+                    // Despawn any PickedItem
+                    for (entity, _) in picked_q.iter_mut() {
+                        commands.entity(entity).despawn();
+                        info!("Despawned: {entity:?}");
+                    }
+                    color_q
+                        .iter_mut()
+                        .for_each(|mut color| color.0 = Color::default());
+
                     let _ = tilemap_e.write(GameMapEvent::Save);
                 }
                 Interaction::Hovered => {
+                    // Despawn any PickedItem
+                    for (entity, _) in picked_q.iter_mut() {
+                        commands.entity(entity).despawn();
+                        info!("Despawned: {entity:?}");
+                    }
+                    color_q
+                        .iter_mut()
+                        .for_each(|mut color| color.0 = Color::default());
+
                     *color = HOVERED_BUTTON.into();
                     border_color.0 = Color::WHITE;
                 }
@@ -68,6 +91,9 @@ fn button_system(
                             commands.entity(entity).despawn();
                             info!("Despawned: {entity:?}");
                         }
+                        color_q
+                            .iter_mut()
+                            .for_each(|mut color| color.0 = Color::default());
 
                         let z = get_segwit_challenge();
                         println!("z: {z:?}");
@@ -85,6 +111,15 @@ fn button_system(
                         }
                     }
                     Interaction::Hovered => {
+                        // Despawn any PickedItem
+                        for (entity, _) in picked_q.iter_mut() {
+                            commands.entity(entity).despawn();
+                            info!("Despawned: {entity:?}");
+                        }
+                        color_q
+                            .iter_mut()
+                            .for_each(|mut color| color.0 = Color::default());
+
                         **text = "Hover".to_string();
                         *color = HOVERED_BUTTON.into();
                         border_color.0 = Color::WHITE;
