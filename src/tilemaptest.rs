@@ -1,3 +1,6 @@
+#![allow(clippy::type_complexity)]
+#![allow(clippy::too_many_arguments)]
+
 use crate::{
     bdk_zone::get_data_dir,
     constants::{ImgAsset, MAP_DIR, MAP_JSON, PopupBase, Z_TILEMAP},
@@ -354,6 +357,17 @@ pub fn tilepos_to_transform(tile_pos: &TilePos, fudge: Vec2, z: f32) -> Transfor
     Transform::from_xyz(
         (tile_pos.x as f32 - map_size / 2.0) * tile_size + fudge.x,
         (tile_pos.y as f32 - map_size / 2.0) * tile_size + fudge.y,
+        z,
+    )
+}
+
+pub fn usizes_to_transform(usizes: &(usize, usize), fudge: Vec2, z: f32) -> Transform {
+    let tile_size = 16.0;
+    let map_size = 128.0;
+
+    Transform::from_xyz(
+        (usizes.0 as f32 - map_size / 2.0) * tile_size + fudge.x,
+        (usizes.1 as f32 - map_size / 2.0) * tile_size + fudge.y,
         z,
     )
 }

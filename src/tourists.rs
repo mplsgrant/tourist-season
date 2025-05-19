@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
-use pathfinding::{directed, grid::Grid, prelude::astar};
+use pathfinding::{grid::Grid, prelude::astar};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{ImgAsset, WALKABLES},
-    tilemaptest::{tilepos_to_transform, transform_to_tilepos},
+    tilemaptest::{tilepos_to_transform, usizes_to_transform},
 };
 
 pub struct Tourists;
@@ -13,7 +13,7 @@ pub struct Tourists;
 impl Plugin for Tourists {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, tourist_spawner);
+            .add_systems(Update, (tourist_spawner, move_tourist));
     }
 }
 
@@ -28,7 +28,8 @@ pub struct Tourist {
 
 pub enum TouristStatus {
     Standing,
-    Walking,
+    Navigating,
+    Walking(TilePos),
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -79,9 +80,8 @@ fn tourist_spawner(
         if timer.tick(time.delta()).just_finished() {
             let grid = grid_q.single().expect("One tourist grid.");
             for spawnpoint_tile_pos in spawnpoint_q.iter() {
-                info!("Spawnpoint tile pos: {:?}", spawnpoint_tile_pos);
                 let tourist_initial_transform =
-                    tilepos_to_transform(spawnpoint_tile_pos, Vec2 { x: 50.0, y: 50.0 }, 6.0);
+                    tilepos_to_transform(spawnpoint_tile_pos, Vec2 { x: 25.0, y: 25.0 }, 6.0);
                 let start = (
                     spawnpoint_tile_pos.x as usize,
                     spawnpoint_tile_pos.y as usize,
@@ -103,9 +103,7 @@ fn tourist_spawner(
 
                     match result {
                         Some((path, cost)) => {
-                            info!("Found path with cost {}: {:?}", cost, path);
-                            let speed = 100.0;
-
+                            info!("PATH: {path:?}");
                             let _ = commands
                                 .spawn((
                                     Sprite::from_image(
@@ -114,7 +112,7 @@ fn tourist_spawner(
                                     ),
                                     Tourist {
                                         status: TouristStatus::Standing,
-                                        path,
+                                        path: path[1..].into(), // skip current tile
                                     },
                                     tourist_initial_transform,
                                     GlobalZIndex(6),
@@ -136,8 +134,31 @@ fn move_tourist(
     mut tourist_q: Query<(&mut Tourist, &mut Transform, &mut Sprite)>,
     time: Res<Time>,
 ) {
-    for (mut tourist, mut transform, mut sprite) in tourist_q.iter() {
-        let tourist_pos = transform_to_tilepos(transform, Vec2::default());
-        let start = (tourist_pos.x as usize, tourist_pos.y as usize);
+    for (mut tourist, mut transform, mut sprite) in tourist_q.iter_mut() {
+        match &tourist.status {
+            TouristStatus::Standing => tourist.status = TouristStatus::Navigating,
+            TouristStatus::Walking(x) => {
+                info!("Walking");
+            }
+            TouristStatus::Navigating => {
+                if let Some(usizes) = tourist.path.first() {
+                    let speed = 100.0;
+                    let next_stop = usizes_to_transform(usizes, Vec2::default(), 6.0);
+                    let travel_vector = next_stop.translation - transform.translation;
+                    let distance = travel_vector.length();
+                    if distance < 1.0 {
+                        tourist.path.remove(0);
+                    } else {
+                        let step = travel_vector.normalize() * speed * time.delta_secs();
+                        if step.length() >= distance {
+                            transform.translation = next_stop.translation;
+                            tourist.path.remove(0);
+                        } else {
+                            transform.translation += step;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
