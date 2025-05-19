@@ -30,7 +30,6 @@ impl Plugin for GameMap {
                     })
                     .set(ImagePlugin::default_nearest()),
             )
-            .init_resource::<DisableTileInteraction>()
             .init_resource::<CursorPos>()
             .init_resource::<CurTilePos>()
             .init_resource::<LastTilePos>()
@@ -49,11 +48,6 @@ impl Plugin for GameMap {
             .add_systems(Update, interact_with_tile)
             .add_systems(Last, save_tilemap);
     }
-}
-
-#[derive(Resource, Clone, Default)]
-pub struct DisableTileInteraction {
-    pub is_disabled: bool,
 }
 
 #[derive(Event)]
@@ -329,16 +323,11 @@ fn interact_with_tile(
     world_pos: Res<CursorPos>,
     tilemap_q: Query<&TileStorage>,
     popup_q: Query<&Node, With<PopupBase>>,
-    disable_tilemap_res: Res<DisableTileInteraction>,
 ) {
     let popup_is_visible = popup_q
         .iter()
         .any(|node| !matches!(node.display, Display::None));
     if popup_is_visible {
-        return;
-    }
-
-    if disable_tilemap_res.is_disabled {
         return;
     }
 

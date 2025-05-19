@@ -1,10 +1,8 @@
 #![allow(clippy::type_complexity)]
 
 use crate::{
-    bdk_zone::get_segwit_challenge,
-    constants::PopupBase,
-    popup::PopupItem,
-    tilemaptest::{DisableTileInteraction, GameMapEvent},
+    bdk_zone::get_segwit_challenge, constants::PopupBase, popup::PopupItem,
+    tilemaptest::GameMapEvent,
 };
 use bevy::{color::palettes::basic::*, prelude::*};
 use bevy_ecs_tilemap::tiles::TileColor;
@@ -42,7 +40,6 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text>,
     mut popup_q: Query<&mut Node, With<PopupBase>>,
-    mut disable_tilemap: ResMut<DisableTileInteraction>,
     mut picked_q: Query<(Entity, &PopupItem)>,
     mut tilemap_e: EventWriter<GameMapEvent>,
     mut color_q: Query<&mut TileColor>,
