@@ -207,23 +207,8 @@ fn tourist_spawner(
                 );
                 if let Some(goal_tile_pos) = despawn_pos_q.iter().next() {
                     let result = my_astar(start, goal_tile_pos, grid);
-                    // let goal = (goal_tile_pos.x as usize, goal_tile_pos.y as usize);
-                    // let result = astar(
-                    //     &start,
-                    //     |p| {
-                    //         grid.neighbours(*p).into_iter().map(|n| (n, 1)) // cost of 1 per move
-                    //     },
-                    //     |p| {
-                    //         ((p.0 as isize - goal.0 as isize).abs()
-                    //             + (p.1 as isize - goal.1 as isize).abs())
-                    //             as u32
-                    //     }, // Manhattan distance
-                    //     |p| *p == goal,
-                    // );
-
                     match result {
                         Some((path, cost)) => {
-                            info!("PATH: {path:?}");
                             let _ = commands
                                 .spawn((
                                     Sprite::from_image(
