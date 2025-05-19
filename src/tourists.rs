@@ -132,15 +132,15 @@ fn redraw_grid(
 }
 
 fn path_recalculator(
-    mut tourist_q: Query<(&mut Tourist, &Transform)>,
+    mut commands: Commands,
+    mut tourist_q: Query<(Entity, &mut Tourist, &Transform)>,
     mut recalc_er: EventReader<RecalcTouristPath>,
     grid_q: Query<&TouristGrid>,
 ) {
     for event in recalc_er.read() {
         match event {
             RecalcTouristPath::NewGoal((entity, tile_pos)) => {
-                if let Ok((mut tourist, transform)) = tourist_q.get_mut(*entity) {
-                    info!("Re-calcing");
+                if let Ok((entity, mut tourist, transform)) = tourist_q.get_mut(*entity) {
                     if let Ok(grid) = grid_q.single() {
                         let start = translation_to_tilepos(&transform.translation, Vec2::default());
                         let start = (start.x as usize, start.y as usize);
@@ -153,13 +153,15 @@ fn path_recalculator(
                         if let Some(result) = my_astar(start, tile_pos, grid) {
                             tourist.path = result.0;
                         } else {
-                            warn!("Could not get my_astar result")
+                            warn!("Could not get my_astar result");
+                            warn!("Killing entity: {entity:?}");
+                            commands.entity(entity).despawn();
                         };
                     } else {
                         warn!("Could not get a grid");
                     }
                 } else {
-                    warn!("Could not get mutable access to a tourist")
+                    warn!("Could not get mutable access to a tourist: {entity:?}")
                 }
             }
         }
