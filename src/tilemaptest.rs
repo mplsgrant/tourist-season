@@ -137,7 +137,6 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
         map
     };
 
-    info!("Maybe spawnpoint");
     for tile_values in map {
         let tile_entity = commands
             .spawn((
@@ -153,11 +152,9 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
             .id();
 
         if let Some(spawnpoint) = tile_values.spawnpoint {
-            info!("Loaded a spawnpoint");
             commands.entity(tile_entity).insert(spawnpoint);
         }
         if let Some(despawnpoint) = tile_values.despawnpoint {
-            info!("Loaded a despawnpoint");
             commands.entity(tile_entity).insert(despawnpoint);
         }
         tile_storage.set(&tile_values.pos, tile_entity);
@@ -218,13 +215,11 @@ fn save_tilemap(
                     .map(
                         |(pos, alpha_pos, idx, buddies, maybe_spawn_point, maybe_despawn_point)| {
                             let spawnpoint = if let Some(spawnpoint) = maybe_spawn_point {
-                                info!("Spawnpoint saving: {pos:?}");
                                 Some(spawnpoint.clone())
                             } else {
                                 None
                             };
                             let despawnpoint = if let Some(despawnpoint) = maybe_despawn_point {
-                                info!("Despawnpoint saving: {pos:?}");
                                 Some(despawnpoint.clone())
                             } else {
                                 None
