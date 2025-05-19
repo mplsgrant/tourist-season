@@ -26,7 +26,7 @@ fn main() {
         .add_plugins(BitcoindHandler)
         .add_plugins(Popup)
         .add_plugins(Tourists)
-        .add_plugins(CoordinateIndicator)
+        //.add_plugins(CoordinateIndicator)
         // .add_plugins(EguiPlugin {
         //     enable_multipass_for_primary_context: true,
         // })
