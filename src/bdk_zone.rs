@@ -12,6 +12,7 @@ use eyre::{Result, eyre};
 use miniscript::descriptor::DescriptorSecretKey;
 use miniscript::descriptor::checksum::desc_checksum;
 use reqwest::blocking::Client;
+use serde_json::Value;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -22,8 +23,8 @@ use std::{thread, time::Duration};
 use crate::constants::BITCOIN_DIR;
 
 pub fn launch_bitcoind_process() -> Result<(Child, PathBuf, PathBuf)> {
-    let challenge = get_segwit_challenge()?;
-    let challenge = format!("{}", challenge.as_bytes().as_hex());
+    //let challenge = get_segwit_challenge()?;
+    //let challenge = format!("{}", challenge.as_bytes().as_hex());
 
     let config_path = get_config_dir()?.join("bitcoin.conf");
     let datadir = get_data_dir(Some(BITCOIN_DIR.into()))?;
@@ -31,7 +32,7 @@ pub fn launch_bitcoind_process() -> Result<(Child, PathBuf, PathBuf)> {
     fs::create_dir_all(&datadir)?;
 
     if !config_path.exists() {
-        write_bitcoin_conf(&config_path, &challenge)?;
+        write_bitcoin_conf(&config_path, "")?;
         info!("Wrote config to {}", config_path.display());
     }
 
@@ -156,6 +157,7 @@ pub fn read_cookie_auth(datadir: &Path) -> Result<(String, String)> {
         .next()
         .ok_or_else(|| eyre!("Malformed cookie file"))?
         .to_string();
+    info!("Got cookie");
     Ok((user, pass))
 }
 
@@ -193,7 +195,7 @@ pub fn write_bitcoin_conf(path: &Path, challenge: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-fn wait_for_rpc_ready(user: &str, pass: &str) -> Result<()> {
+pub fn wait_for_rpc_ready(user: &str, pass: &str) -> Result<u64> {
     let client = Client::new();
     //let url = "http://127.0.0.1:38332"; // Signet
     let url = "http://127.0.0.1:18443"; // Regtest
@@ -212,8 +214,13 @@ fn wait_for_rpc_ready(user: &str, pass: &str) -> Result<()> {
 
         if let Ok(resp) = res {
             if resp.status().is_success() {
-                info!("wait for rpc: {}", resp.text()?);
-                return Ok(());
+                let data = resp.text()?;
+                let v: Value = serde_json::from_str(&data)?;
+                info!("wait for rpc: {}", data);
+                info!("Block count: {}", v["result"]["blocks"]);
+                let block_count = v["result"]["blocks"].clone();
+                let block_count = block_count.as_u64().unwrap();
+                return Ok(block_count);
             }
         }
         thread::sleep(Duration::from_secs(1));
@@ -325,7 +332,59 @@ fn wait_for_file<P: AsRef<Path>>(path: P, timeout: Duration) -> std::io::Result<
         thread::sleep(Duration::from_millis(100));
     }
 
-    // DELME
+    Ok(())
+}
+
+pub fn mine_blocks(count: u32) -> Result<()> {
+    let bitcoin_cli = "bitcoin-cli";
+    let config_path = get_config_dir()?.join("bitcoin.conf");
+    let datadir = get_data_dir(Some(BITCOIN_DIR.into()))?;
+
+    let (user, pass) = read_cookie_auth(&datadir)?;
+    wait_for_rpc_ready(&user, &pass)?;
+
+    let data_dir_arg = format!("-datadir={}", datadir.display());
+    let conf_path_arg = format!("-conf={}", config_path.display());
+    info!("{} {} {}", bitcoin_cli, data_dir_arg, conf_path_arg);
+
+    let mut child = Command::new(bitcoin_cli)
+        .arg("-regtest")
+        .arg(data_dir_arg)
+        .arg(conf_path_arg)
+        .arg("generatetoaddress")
+        .arg(count.to_string())
+        .arg("bcrt1pkar3gerekw8f9gef9vn9xz0qypytgacp9wa5saelpksdgct33qdqan7c89")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("Failed to start bitcoin-cli");
+
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    // Log stdout
+    if let Some(out) = stdout {
+        thread::spawn(move || {
+            let reader = BufReader::new(out);
+            for line in reader.lines().map_while(Result::ok) {
+                info!("[{bitcoin_cli} stdout] {}", line);
+            }
+        });
+    }
+
+    // Log stderr
+    if let Some(err) = stderr {
+        thread::spawn(move || {
+            let reader = BufReader::new(err);
+            for line in reader.lines().map_while(Result::ok) {
+                warn!("[{bitcoin_cli} stderr] {}", line);
+            }
+        });
+    };
+
+    info!("{bitcoin_cli} process started with PID: {}", child.id());
+    let exit = child.wait()?;
+    info!("{bitcoin_cli} process ended with: {}", exit);
 
     Ok(())
 }

@@ -11,6 +11,7 @@ bitcoin = { version = "0.32.5", features = ["base64", "serde"] }
 miniscript = { version = "12.3.1", features = ["serde"] }
 bip39 = "2.1.0"
 bdk_wallet = { version = "1.2.0", features = ["rusqlite"] }
+bdk_electrum = "0.20.1"
 
 pathfinding = "4.14.0"
 

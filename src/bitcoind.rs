@@ -1,5 +1,12 @@
-use crate::bdk_zone::{
-    launch_bitcoind_process, load_descriptor, xpriv_key_from_abandon, xpriv_to_descriptor,
+use crate::{
+    bdk_zone::{
+        get_data_dir, launch_bitcoind_process, load_descriptor, mine_blocks, read_cookie_auth,
+        wait_for_rpc_ready, xpriv_key_from_abandon, xpriv_to_descriptor,
+    },
+    constants::BITCOIN_DIR,
+    electrum_wallet::{
+        ElectrsProcess, PlayerWallet, TouristWallet, activate_wallet, spawn_electrs,
+    },
 };
 use bevy::prelude::*;
 use std::{
@@ -87,7 +94,7 @@ impl Drop for BitcoindProcess {
     }
 }
 
-fn log_or_print(msg: &str, level: log::Level) {
+pub fn log_or_print(msg: &str, level: log::Level) {
     if log::log_enabled!(level) {
         log::log!(level, "{}", msg)
     } else {
@@ -111,4 +118,24 @@ fn insert_bitcoind(mut commands: Commands) {
     } else {
         warn!("Could not insert the BitcoindProcess Resource")
     }
+
+    let datadir = get_data_dir(Some(BITCOIN_DIR.into())).expect("A datadir");
+    let (user, pass) = read_cookie_auth(&datadir).expect("A user/pass");
+    let block_count = wait_for_rpc_ready(&user, &pass).expect("bitcoind is ready");
+    if block_count < 50 {
+        mine_blocks(101).expect("Blocks");
+    }
+
+    let (child, _, _) = spawn_electrs().expect("Need to have electrs installed on your machine");
+    commands.insert_resource(ElectrsProcess { child });
+
+    let (tourist_wallet, player_wallet) = activate_wallet();
+
+    commands.spawn(TouristWallet {
+        wallet: tourist_wallet,
+    });
+
+    commands.spawn(PlayerWallet {
+        wallet: player_wallet,
+    });
 }
