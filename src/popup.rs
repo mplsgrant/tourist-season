@@ -2,9 +2,9 @@
 #![allow(clippy::too_many_arguments)]
 
 use crate::{
-    constants::{ImgAsset, PopupBase},
+    constants::{ImgAsset, PopupBase, WALKABLES},
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
-    tourists::{TouristDespawnPoint, TouristSpawnPoint},
+    tourists::{RedrawGrid, TouristDespawnPoint, TouristGrid, TouristSpawnPoint},
 };
 use bevy::{color::palettes::basic::*, prelude::*};
 use bevy_ecs_tilemap::tiles::{TileColor, TilePos, TileStorage, TileTextureIndex};
@@ -626,10 +626,16 @@ fn pick_and_place(
 fn place_tiles(
     mut commands: Commands,
     mut popup_e: EventReader<PopupEvent>,
-    mut tiles_q: Query<(&mut TileBuddies, &mut AlphaPos, &mut TileTextureIndex)>,
+    mut tiles_q: Query<(
+        &mut TileBuddies,
+        &mut AlphaPos,
+        &mut TileTextureIndex,
+        &TilePos,
+    )>,
+    mut redraw_ew: EventWriter<RedrawGrid>,
 ) {
     for event in popup_e.read() {
-        if let Ok((mut buddies, mut alpha_pos, mut texture_idx)) =
+        if let Ok((mut buddies, mut alpha_pos, mut texture_idx, tile_pos)) =
             tiles_q.get_mut(event.clicked_entity)
         {
             // Update the tile
@@ -657,6 +663,12 @@ fn place_tiles(
                 commands
                     .entity(event.clicked_entity)
                     .remove::<TouristDespawnPoint>();
+            }
+
+            if !WALKABLES.iter().any(|idx| idx == &texture_idx.0) {
+                redraw_ew.write(RedrawGrid::MarkUnWalkable(*tile_pos));
+            } else {
+                redraw_ew.write(RedrawGrid::MarkWalkable(*tile_pos));
             }
         }
     }

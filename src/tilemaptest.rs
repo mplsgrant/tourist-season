@@ -381,3 +381,13 @@ pub fn transform_to_tilepos(transform: &Transform, fudge: Vec2) -> TilePos {
 
     TilePos { x, y }
 }
+
+pub fn translation_to_tilepos(translation: &Vec3, fudge: Vec2) -> TilePos {
+    let tile_size = 16.0;
+    let map_size = 128.0;
+
+    let x = ((translation.x - fudge.x) / tile_size + map_size / 2.0).floor() as u32;
+    let y = ((translation.y - fudge.y) / tile_size + map_size / 2.0).floor() as u32;
+
+    TilePos { x, y }
+}
