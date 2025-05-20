@@ -2,7 +2,6 @@ use std::io::BufRead;
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
 use std::str::FromStr;
-use std::sync::Arc;
 
 use bdk_electrum::{
     BdkElectrumClient,
