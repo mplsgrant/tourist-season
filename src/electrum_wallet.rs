@@ -3,15 +3,17 @@ use std::path::PathBuf;
 use std::process::{Child, Stdio};
 use std::str::FromStr;
 
-use bdk_electrum::electrum_client::Client;
-use bdk_electrum::{BdkElectrumClient, electrum_client};
+use bdk_electrum::{
+    BdkElectrumClient,
+    electrum_client::{self, Client},
+};
 use bdk_wallet::KeychainKind;
 use bdk_wallet::Wallet;
 use bdk_wallet::bitcoin::Network;
 use bdk_wallet::{AddressInfo, SignOptions};
 use bevy::prelude::*;
-use bevy::state::commands;
 use bitcoin::{Address, Amount, FeeRate};
+use num_format::{Locale, ToFormattedString};
 
 use crate::bdk_zone::{get_config_dir, get_data_dir};
 use crate::bitcoind::log_or_print;
@@ -23,7 +25,7 @@ pub struct ElectrumWallet;
 impl Plugin for ElectrumWallet {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, send_sats);
+            .add_systems(Update, (send_sats, update_balance));
     }
 }
 
@@ -49,13 +51,55 @@ pub struct PlayerWallet {
     pub wallet: Wallet,
 }
 
+#[derive(Component)]
+pub struct WalletBalanceLabel;
+
+#[derive(Component)]
+pub struct BalanceTimer(pub Timer);
+
 pub fn startup(mut commands: Commands) {
-    commands.spawn(SendSatsTimer(Timer::from_seconds(3.0, TimerMode::Once)));
+    commands.spawn(BalanceTimer(Timer::from_seconds(7.0, TimerMode::Once)));
+    commands.spawn(SendSatsTimer(Timer::from_seconds(4.0, TimerMode::Once)));
+    commands.spawn((
+        Text::new("Balance: 0"),
+        TextFont {
+            font_size: 20.0,
+            ..Default::default()
+        },
+        WalletBalanceLabel,
+    ));
+}
+
+pub fn update_balance(
+    mut player_wallet_q: Query<&mut PlayerWallet>,
+    mut balance_label_q: Query<&mut Text, With<WalletBalanceLabel>>,
+    mut balance_timer: Query<&mut BalanceTimer>,
+    time: Res<Time>,
+) {
+    for mut timer in &mut balance_timer {
+        if timer.0.tick(time.delta()).just_finished() {
+            for mut player in &mut player_wallet_q {
+                let client: BdkElectrumClient<Client> = BdkElectrumClient::new(
+                    electrum_client::Client::new("127.0.0.1:60401").unwrap(),
+                );
+
+                let request = player.wallet.start_sync_with_revealed_spks().build();
+                let update = client.sync(request, 25, true).unwrap();
+                player.wallet.apply_update(update).unwrap();
+
+                let balance = player.wallet.balance();
+                let amount = balance.total();
+                let sat = amount.to_sat();
+                balance_label_q.single_mut().unwrap().0 = sat.to_formatted_string(&Locale::en);
+            }
+
+            timer.0.reset();
+        }
+    }
 }
 
 pub fn send_sats(
     time: Res<Time>,
-    mut player_wallet_q: Query<&PlayerWallet>,
     mut sats_to_send_q: Query<&mut SatsToSend>,
     mut send_sats_timer_q: Query<&mut SendSatsTimer>,
     mut wallet_q: Query<&mut TouristWallet>,
@@ -63,11 +107,20 @@ pub fn send_sats(
     for mut sats_timer in &mut send_sats_timer_q {
         if sats_timer.tick(time.delta()).just_finished() {
             //bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg
+            let mut wallet = wallet_q.single_mut().unwrap();
+
+            let client: BdkElectrumClient<Client> =
+                BdkElectrumClient::new(electrum_client::Client::new("127.0.0.1:60401").unwrap());
+
+            let request = wallet.wallet.start_sync_with_revealed_spks().build();
+            let update = client.sync(request, 25, true).unwrap();
+            wallet.wallet.apply_update(update).unwrap();
+
             let sats_to_send = sats_to_send_q.single_mut().unwrap().sats;
             if sats_to_send > 0 {
                 let base_fee = 4;
                 let more_fee = sats_to_send / 4_000;
-                let mut wallet = wallet_q.single_mut().unwrap();
+
                 let address = Address::from_str(
                     "bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg",
                 )
@@ -79,7 +132,8 @@ pub fn send_sats(
                 let mut builder = wallet.wallet.build_tx();
                 builder.fee_rate(fee).add_recipient(address, amount);
                 let mut psbt = builder.finish().unwrap();
-                let finalized = wallet
+
+                let _is_finalized = wallet
                     .wallet
                     .sign(&mut psbt, SignOptions::default())
                     .unwrap();
@@ -183,7 +237,7 @@ pub fn spawn_electrs() -> Result<(Child, PathBuf, PathBuf)> {
     }
 
     info!("{electrs_path} process started with PID: {}", child.id());
-    Ok((child, PathBuf::from(data_dir), PathBuf::from(conf_path)))
+    Ok((child, data_dir, conf_path))
 }
 
 #[derive(Resource)]
@@ -211,7 +265,7 @@ impl Drop for ElectrsProcess {
 
                 if let Ok(status) = self.child.wait() {
                     log_or_print(
-                        &format!("Electrs exited after kill with status: {}", status),
+                        &format!("Electrs exited after kill with status: {status}"),
                         log::Level::Info,
                     );
                 }

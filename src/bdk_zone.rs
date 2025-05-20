@@ -3,7 +3,6 @@ use bip39::Mnemonic;
 use bitcoin::{
     Address, CompressedPublicKey, KnownHrp, Network, PrivateKey, Script, ScriptBuf,
     bip32::{DerivationPath, Xpriv},
-    hex::DisplayHex,
     key::{Secp256k1, UntweakedPublicKey},
     opcodes::all::{OP_CHECKMULTISIG, OP_PUSHNUM_1},
 };
@@ -112,7 +111,7 @@ pub fn xpriv_to_descriptor(xpriv: Xpriv) -> String {
     let addy = Address::p2tr(&secp, pk, None, KnownHrp::Regtest);
 
     assert_eq!(
-        format!("{}", addy),
+        format!("{addy}"),
         "bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg"
     );
 
@@ -121,16 +120,16 @@ pub fn xpriv_to_descriptor(xpriv: Xpriv) -> String {
     let cpk = CompressedPublicKey::from_private_key(&secp, &private_key).unwrap();
     let addy2 = Address::p2wpkh(&cpk, KnownHrp::Mainnet);
     assert_eq!(
-        format!("{}", addy2),
+        format!("{addy2}"),
         "bc1qvjvarw3yz8xmhcrt54qkaafry5r072pg4c5nmy"
     );
 
-    format!("{}", addy)
+    format!("{addy}")
 }
 
 pub fn load_wallet() {
     let data_dir = get_data_dir(None).unwrap();
-    let mut conn = bdk_wallet::rusqlite::Connection::open(data_dir).unwrap();
+    let conn = bdk_wallet::rusqlite::Connection::open(data_dir).unwrap();
     //    let wallet = Wallet::load().load_wallet(persister);
 }
 
@@ -268,7 +267,7 @@ fn load_descriptor_wallet(
         .send()?;
 
     if resp.status().is_success() {
-        log::info!("Loaded descriptor into wallet `{}`", wallet_name);
+        log::info!("Loaded descriptor into wallet `{wallet_name}`");
         Ok(())
     } else {
         Err(eyre!("Failed to import descriptor: {}", resp.text()?))

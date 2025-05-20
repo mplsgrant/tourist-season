@@ -4,7 +4,7 @@
 use crate::{
     constants::{ImgAsset, PopupBase, WALKABLES},
     tilemaptest::{AlphaPos, CurTilePos, CursorPos, LastTilePos, TileBuddies, TileValues},
-    tourists::{RedrawGrid, TouristDespawnPoint, TouristGrid, TouristSpawnPoint},
+    tourists::{RedrawGrid, TouristDespawnPoint, TouristSpawnPoint},
 };
 use bevy::{color::palettes::basic::*, prelude::*};
 use bevy_ecs_tilemap::tiles::{TileColor, TilePos, TileStorage, TileTextureIndex};

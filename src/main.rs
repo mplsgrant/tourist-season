@@ -1,8 +1,6 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use bitcoind::BitcoindHandler;
 use button_row::ButtonRow;
-use coordinates::CoordinateIndicator;
 use electrum_wallet::ElectrumWallet;
 use popup::Popup;
 use tilemaptest::GameMap;

@@ -214,16 +214,8 @@ fn save_tilemap(
                     .iter()
                     .map(
                         |(pos, alpha_pos, idx, buddies, maybe_spawn_point, maybe_despawn_point)| {
-                            let spawnpoint = if let Some(spawnpoint) = maybe_spawn_point {
-                                Some(spawnpoint.clone())
-                            } else {
-                                None
-                            };
-                            let despawnpoint = if let Some(despawnpoint) = maybe_despawn_point {
-                                Some(despawnpoint.clone())
-                            } else {
-                                None
-                            };
+                            let spawnpoint = maybe_spawn_point.cloned();
+                            let despawnpoint = maybe_despawn_point.cloned();
                             TileValues {
                                 pos: *pos,
                                 alpha_pos: *alpha_pos,

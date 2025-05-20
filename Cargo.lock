@@ -510,12 +510,30 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4955734f97b2baed3f36d16ae7c203fdde31ae85391ac44ee3cbcaf0886db5ce"
 dependencies = [
- "bdk_core",
+ "bdk_core 0.4.1",
  "bitcoin",
  "miniscript",
  "rusqlite",
  "serde",
 ]
+
+[[package]]
+name = "bdk_chain"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "260ac6b2feb080a9af6e1df060e09ea78b2034955aeabef81b87309d6b7cfd47"
+dependencies = [
+ "bdk_core 0.5.0",
+ "bitcoin",
+ "miniscript",
+ "serde",
+]
+
+[[package]]
+name = "bdk_coin_select"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2e57e4db8b917d554a0eb142be5267bbc88d787c3346c8dc0590fbe76be68bd"
 
 [[package]]
 name = "bdk_core"
@@ -529,13 +547,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "bdk_core"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cb2496e93fd104e32a36cd5dfb0638fc8376d83d80696b3b75f27abe39df343"
+dependencies = [
+ "bitcoin",
+ "hashbrown 0.14.5",
+ "serde",
+]
+
+[[package]]
 name = "bdk_electrum"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b272d5a3228799f7c917255fe26e788f6c29dd4a084a342d274a44352bbc0915"
 dependencies = [
- "bdk_core",
+ "bdk_core 0.4.1",
  "electrum-client",
+]
+
+[[package]]
+name = "bdk_file_store"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f515b663e5e9a479c5a5e116c51bfe13fed9180076f83717b03ed8efd7068e95"
+dependencies = [
+ "bdk_core 0.5.0",
+ "bincode",
+ "serde",
 ]
 
 [[package]]
@@ -544,7 +584,7 @@ version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "461b92c4e47b688a92740b204f4580e0a51775df16b67dde1d2db6ede1f0ba09"
 dependencies = [
- "bdk_chain",
+ "bdk_chain 0.21.1",
  "bitcoin",
  "miniscript",
  "rand_core 0.6.4",
@@ -564,7 +604,6 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a5cd3b24a5adb7c7378da7b3eea47639877643d11b6b087fc8a8094f2528615"
 dependencies = [
- "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -827,15 +866,6 @@ dependencies = [
  "log",
  "serde",
  "sysinfo",
-]
-
-[[package]]
-name = "bevy_dylib"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "843c7ce266dfc46e49d01fbf9aa1829d33b70a1859b9ed6a526ac03070c52e97"
-dependencies = [
- "bevy_internal",
 ]
 
 [[package]]
@@ -1666,6 +1696,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.69.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1723,7 +1762,11 @@ dependencies = [
 name = "bird-view"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "bdk_chain 0.22.0",
+ "bdk_coin_select",
  "bdk_electrum",
+ "bdk_file_store",
  "bdk_wallet",
  "bevy",
  "bevy-inspector-egui",
@@ -1736,6 +1779,7 @@ dependencies = [
  "ldtk_rust",
  "log",
  "miniscript",
+ "num-format",
  "pathfinding",
  "rand 0.9.0",
  "rand_chacha 0.9.0",
@@ -2060,6 +2104,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eccb054f56cbd38340b380d4a8e69ef1f02f1af43db2f0cc817a4774d80ae071"
 dependencies = [
  "clap_builder",
+ "clap_derive",
 ]
 
 [[package]]
@@ -2072,6 +2117,18 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.5.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09176aae279615badda0765c0c0b3f6ed53f4709118af73cf4655d85d1530cd7"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -4282,6 +4339,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "num-format"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
+dependencies = [
+ "arrayvec",
+ "itoa",
 ]
 
 [[package]]

@@ -1,21 +1,14 @@
-use std::str::FromStr;
 
-use bdk_electrum::{
-    BdkElectrumClient,
-    electrum_client::{self, Client},
-};
-use bdk_wallet::SignOptions;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
-use bitcoin::{Address, Amount, FeeRate};
 use pathfinding::{grid::Grid, prelude::astar};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    bdk_zone::mine_blocks,
     constants::{ImgAsset, WALKABLES},
-    electrum_wallet::{PlayerWallet, TouristWallet},
     tilemaptest::{
-        tilepos_to_transform, transform_to_tilepos, translation_to_tilepos, usizes_to_transform,
+        tilepos_to_transform, translation_to_tilepos, usizes_to_transform,
     },
 };
 
@@ -23,7 +16,8 @@ pub struct Tourists;
 
 impl Plugin for Tourists {
     fn build(&self, app: &mut App) {
-        app.add_event::<RedrawGrid>()
+        app.init_resource::<CurrentRound>()
+            .add_event::<RedrawGrid>()
             .add_event::<RecalcTouristPath>()
             .add_systems(PostStartup, post_startup)
             .add_systems(
@@ -52,6 +46,12 @@ pub enum RecalcTouristPath {
 
 #[derive(Component, Deref, DerefMut)]
 struct SpawnTouristTimer(Timer);
+
+#[derive(Component, Deref, DerefMut)]
+struct NextRound(pub Timer);
+
+#[derive(Resource, Default)]
+struct CurrentRound(pub u32);
 
 #[derive(Component)]
 pub struct Tourist {
@@ -90,6 +90,7 @@ fn post_startup(
         iterations: 0,
     });
     commands.spawn(SpawnTouristTimer(Timer::from_seconds(2.0, TimerMode::Once)));
+    commands.spawn(NextRound(Timer::from_seconds(10.0, TimerMode::Once)));
 
     let mut grid = Grid::new(128, 128);
     for y in 0..128 {
@@ -213,6 +214,7 @@ fn tourist_spawner(
     spawnpoint_q: Query<&TilePos, With<TouristSpawnPoint>>,
     grid_q: Query<&TouristGrid>,
     despawn_pos_q: Query<&TilePos, With<TouristDespawnPoint>>,
+    mut next_round_timer_q: Query<&mut NextRound>,
 ) {
     for mut timer in &mut spawn_tourist_timer {
         if timer.tick(time.delta()).just_finished() {
@@ -252,6 +254,17 @@ fn tourist_spawner(
             timer.reset();
         }
     }
+
+    for mut timer in &mut next_round_timer_q {
+        if timer.0.tick(time.delta()).just_finished() {
+            mine_blocks(
+                8,
+                "bcrt1pkar3gerekw8f9gef9vn9xz0qypytgacp9wa5saelpksdgct33qdqan7c89",
+            )
+            .unwrap();
+            timer.reset();
+        }
+    }
 }
 
 fn move_tourist(
@@ -262,7 +275,7 @@ fn move_tourist(
     time: Res<Time>,
     mut sats_to_send_q: Query<&mut SatsToSend>,
 ) {
-    for (entity, mut tourist, mut transform, mut sprite) in tourist_q.iter_mut() {
+    for (entity, mut tourist, mut transform, sprite) in tourist_q.iter_mut() {
         let tile_pos = translation_to_tilepos(&transform.translation, Vec2::default());
         let storage = storage_q.single().expect("One tile storage");
         let is_walkable = if let Some(tile_entity) = storage.checked_get(&tile_pos) {

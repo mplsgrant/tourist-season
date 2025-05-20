@@ -29,7 +29,7 @@ fn set_cursor_pos_label(
     cur_tile: Res<CurTilePos>,
     mut cursor_label_q: Query<(&mut Text, &mut ShowCoordinates)>,
 ) {
-    for (mut text, mut show_coordinates) in cursor_label_q.iter_mut() {
+    for (mut text, show_coordinates) in cursor_label_q.iter_mut() {
         text.0 = format!("{:?} {:?}", cursor_pos.0, cur_tile.0);
     }
 }

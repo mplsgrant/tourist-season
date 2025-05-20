@@ -57,7 +57,7 @@ impl Drop for BitcoindProcess {
                             std::thread::sleep(std::time::Duration::from_secs(1));
                             if let Ok(Some(status)) = self.child.try_wait() {
                                 log_or_print(
-                                    &format!("Bitcoind exited gracefully with status: {}", status),
+                                    &format!("Bitcoind exited gracefully with status: {status}"),
                                     log::Level::Info,
                                 );
                                 return;
@@ -82,7 +82,7 @@ impl Drop for BitcoindProcess {
 
                 if let Ok(status) = self.child.wait() {
                     log_or_print(
-                        &format!("Bitcoind exited after kill with status: {}", status),
+                        &format!("Bitcoind exited after kill with status: {status}"),
                         log::Level::Info,
                     );
                 }
@@ -96,9 +96,9 @@ impl Drop for BitcoindProcess {
 
 pub fn log_or_print(msg: &str, level: log::Level) {
     if log::log_enabled!(level) {
-        log::log!(level, "{}", msg)
+        log::log!(level, "{msg}")
     } else {
-        println!("{}", msg);
+        println!("{msg}");
     }
 }
 

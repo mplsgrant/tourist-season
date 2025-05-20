@@ -7,11 +7,17 @@ edition = "2024"
 strum = "0.27.1"
 strum_macros = "0.27"
 
-bitcoin = { version = "0.32.5", features = ["base64", "serde"] }
+num-format = "0.4.4"
+
+bitcoin = { version = "0.32.5", features = ["base64", "serde", "rand"] }
 miniscript = { version = "12.3.1", features = ["serde"] }
 bip39 = "2.1.0"
+
+bdk_coin_select = "0.4.0"
 bdk_wallet = { version = "1.2.0", features = ["rusqlite"] }
 bdk_electrum = "0.20.1"
+bdk_chain = { version = "0.22.0", features = ["serde", "miniscript"] }
+bdk_file_store = { version = "0.20.0" }
 
 pathfinding = "4.14.0"
 
@@ -23,9 +29,9 @@ reqwest = { version = "0.12.15", features = ['blocking', 'json']}
 serde = "1.0.219"
 serde_json = "1.0.140"
 
-clap = "4.5.37"
+clap = { version = "4.5.17", features = ["derive", "env"] }
 
-bevy = { version = "0.16.0", features = ["bevy_render", "bevy_gizmos", "dynamic_linking"] }
+bevy = { version = "0.16.0", features = ["bevy_render", "bevy_gizmos"] } #  , "dynamic_linking"
 
 bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap/", rev = "c2c1d076bd70d132edb6410e835a2ba6bdbaab5c", features = ["serde"] }
 bevy-inspector-egui = "0.31.0"
@@ -38,6 +44,7 @@ rand_chacha = "0.9.0"
 
 # Disable detailed log levels on compile time so that they do not need to be filtered out while your app is running.
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+anyhow = "1.0.98"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
