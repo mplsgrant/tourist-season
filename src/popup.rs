@@ -253,29 +253,54 @@ fn button_system(
                     }
                     PopupMenuTileType::BuildingA => {
                         let picked_item = PopupItem {
-                            alpha_texture_idx: TileTextureIndex(ImgAsset::RedBrickColLower.index()),
+                            alpha_texture_idx: TileTextureIndex(ImgAsset::Sidewalk.index()),
                             relative_pos_and_idx: vec![
                                 (
                                     TilePos { x: 1, y: 0 },
-                                    TileTextureIndex(ImgAsset::DoorSingleGlassClosed.index()),
+                                    TileTextureIndex(ImgAsset::SidewalkSpecial.index()),
                                 ),
                                 (
                                     TilePos { x: 2, y: 0 },
-                                    TileTextureIndex(ImgAsset::RedBrickColLower.index()),
+                                    TileTextureIndex(ImgAsset::Sidewalk.index()),
                                 ),
                                 (
                                     TilePos { x: 0, y: 1 },
-                                    TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
+                                    TileTextureIndex(ImgAsset::RedBrickColLower.index()),
                                 ),
                                 (
                                     TilePos { x: 1, y: 1 },
-                                    TileTextureIndex(ImgAsset::RedBrickMidUpperA.index()),
+                                    TileTextureIndex(ImgAsset::DoorSingleGlassClosed.index()),
                                 ),
                                 (
                                     TilePos { x: 2, y: 1 },
+                                    TileTextureIndex(ImgAsset::RedBrickColLower.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 2 },
                                     TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
                                 ),
+                                (
+                                    TilePos { x: 1, y: 2 },
+                                    TileTextureIndex(ImgAsset::RedBrickMidUpperA.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 2 },
+                                    TileTextureIndex(ImgAsset::RedBrickColUpper.index()),
+                                ),
+                                (
+                                    TilePos { x: 0, y: 3 },
+                                    TileTextureIndex(ImgAsset::RoofTightLeft.index()),
+                                ),
+                                (
+                                    TilePos { x: 1, y: 3 },
+                                    TileTextureIndex(ImgAsset::RoofTightMiddle.index()),
+                                ),
+                                (
+                                    TilePos { x: 2, y: 3 },
+                                    TileTextureIndex(ImgAsset::RoofTightRight.index()),
+                                ),
                             ],
+
                             spawnpoint: None,
                             despawnpoint: None,
                         };

@@ -1,10 +1,19 @@
+use std::str::FromStr;
+
+use bdk_electrum::{
+    BdkElectrumClient,
+    electrum_client::{self, Client},
+};
+use bdk_wallet::SignOptions;
 use bevy::prelude::*;
 use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
+use bitcoin::{Address, Amount, FeeRate};
 use pathfinding::{grid::Grid, prelude::astar};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{ImgAsset, WALKABLES},
+    electrum_wallet::TouristWallet,
     tilemaptest::{
         tilepos_to_transform, transform_to_tilepos, translation_to_tilepos, usizes_to_transform,
     },
@@ -56,6 +65,11 @@ pub enum TouristStatus {
     Walking(TilePos),
 }
 
+#[derive(Component)]
+pub struct SatsToSend {
+    pub sats: u64,
+}
+
 #[derive(Component, Deref, DerefMut)]
 pub struct TouristGrid(Grid);
 
@@ -70,6 +84,7 @@ fn post_startup(
     tilemap_q: Query<&TileStorage>,
     position_q: Query<(&TilePos, &TileTextureIndex)>,
 ) {
+    commands.spawn(SatsToSend { sats: 0 });
     commands.spawn(SpawnTouristTimer(Timer::from_seconds(2.0, TimerMode::Once)));
 
     let mut grid = Grid::new(128, 128);
@@ -241,8 +256,26 @@ fn move_tourist(
     texture_q: Query<&TileTextureIndex>,
     storage_q: Query<&TileStorage>,
     time: Res<Time>,
+    mut sats_to_send_q: Query<&mut SatsToSend>,
 ) {
     for (entity, mut tourist, mut transform, mut sprite) in tourist_q.iter_mut() {
+        let tile_pos = translation_to_tilepos(&transform.translation, Vec2::default());
+        let storage = storage_q.single().expect("One tile storage");
+        let is_walkable = if let Some(tile_entity) = storage.checked_get(&tile_pos) {
+            if let Ok(texture_idx) = texture_q.get(tile_entity) {
+                if texture_idx.0 == ImgAsset::SidewalkSpecial.index() {
+                    sats_to_send_q.single_mut().unwrap().sats += 4_000;
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         match &tourist.status {
             TouristStatus::Standing => tourist.status = TouristStatus::Navigating,
             TouristStatus::Walking(x) => {
@@ -266,15 +299,16 @@ fn move_tourist(
                             let next_step = transform.translation + step;
                             let tile_pos = translation_to_tilepos(&next_step, Vec2::default());
                             let storage = storage_q.single().expect("One tile storage");
-                            let is_walkable = if let Some(entity) = storage.checked_get(&tile_pos) {
-                                if let Ok(texture_idx) = texture_q.get(entity) {
-                                    WALKABLES.iter().any(|x| x == &texture_idx.0)
+                            let is_walkable =
+                                if let Some(tile_entity) = storage.checked_get(&tile_pos) {
+                                    if let Ok(texture_idx) = texture_q.get(tile_entity) {
+                                        WALKABLES.iter().any(|x| x == &texture_idx.0)
+                                    } else {
+                                        false
+                                    }
                                 } else {
                                     false
-                                }
-                            } else {
-                                false
-                            };
+                                };
                             if is_walkable {
                                 transform.translation += step;
                             } else {

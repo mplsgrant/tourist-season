@@ -1,24 +1,29 @@
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
+use std::str::FromStr;
 
 use bdk_electrum::electrum_client::Client;
 use bdk_electrum::{BdkElectrumClient, electrum_client};
-use bdk_wallet::AddressInfo;
 use bdk_wallet::KeychainKind;
 use bdk_wallet::Wallet;
 use bdk_wallet::bitcoin::Network;
+use bdk_wallet::{AddressInfo, SignOptions};
 use bevy::prelude::*;
+use bevy::state::commands;
+use bitcoin::{Address, Amount, FeeRate};
 
 use crate::bdk_zone::{get_config_dir, get_data_dir};
 use crate::bitcoind::log_or_print;
 use crate::constants::BITCOIN_DIR;
+use crate::tourists::SatsToSend;
 
 pub struct ElectrumWallet;
 
 impl Plugin for ElectrumWallet {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, startup);
+        app.add_systems(Startup, startup)
+            .add_systems(Update, send_sats);
     }
 }
 
@@ -31,6 +36,9 @@ const INTERNAL_DESCRIPTOR: &str = "tr(tprv8ZgxMBicQKsPdrjwWCyXqqJ4YqcyG4DmKtjjsR
 const EXTERNAL_ABANDON: &str = "tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86h/1h/0h/0/*)#vak0p2pv";
 const INTERNAL_ABANDON: &str = "tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86h/1h/0h/1/*)#afnwul35";
 
+#[derive(Component, Deref, DerefMut)]
+pub struct SendSatsTimer(Timer);
+
 #[derive(Component)]
 pub struct TouristWallet {
     pub wallet: Wallet,
@@ -41,8 +49,50 @@ pub struct PlayerWallet {
     pub wallet: Wallet,
 }
 
-pub fn startup() {
-    info!("Electrum wallet startup");
+pub fn startup(mut commands: Commands) {
+    commands.spawn(SendSatsTimer(Timer::from_seconds(3.0, TimerMode::Once)));
+}
+
+pub fn send_sats(
+    time: Res<Time>,
+    mut sats_to_send_q: Query<&mut SatsToSend>,
+    mut send_sats_timer_q: Query<&mut SendSatsTimer>,
+    mut wallet_q: Query<&mut TouristWallet>,
+) {
+    for mut sats_timer in &mut send_sats_timer_q {
+        if sats_timer.tick(time.delta()).just_finished() {
+            //bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg
+            let sats_to_send = sats_to_send_q.single_mut().unwrap().sats;
+            if sats_to_send > 0 {
+                let mut wallet = wallet_q.single_mut().unwrap();
+                let address = Address::from_str(
+                    "bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg",
+                )
+                .unwrap()
+                .require_network(bitcoin::Network::Regtest)
+                .unwrap();
+                let amount = Amount::from_sat(sats_to_send);
+                let fee = FeeRate::from_sat_per_vb(10).unwrap();
+                let mut builder = wallet.wallet.build_tx();
+                builder.fee_rate(fee).add_recipient(address, amount);
+                let mut psbt = builder.finish().unwrap();
+                let finalized = wallet
+                    .wallet
+                    .sign(&mut psbt, SignOptions::default())
+                    .unwrap();
+
+                let tx = psbt.extract_tx().unwrap();
+                let client: BdkElectrumClient<Client> = BdkElectrumClient::new(
+                    electrum_client::Client::new("127.0.0.1:60401").unwrap(),
+                );
+                match client.transaction_broadcast(&tx) {
+                    Ok(_) => info!("Transaction broadcast! Txid: {}", tx.compute_txid()),
+                    Err(err) => warn!("Broadcast error: {err}"),
+                }
+            }
+            sats_timer.0.reset();
+        }
+    }
 }
 
 pub fn activate_wallet() -> (Wallet, Wallet) {

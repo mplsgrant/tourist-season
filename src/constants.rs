@@ -114,6 +114,16 @@ pub enum ImgAsset {
     SidewalkRight,
     SidewalkTopLeft,
     SidewalkTop,
+    SidewalkSpecial,
+    // Sign
+    Sign,
+    // Trees
+    TreeSmallA,
+    TreeSmallB,
+    // Roof
+    RoofTightLeft,
+    RoofTightMiddle,
+    RoofTightRight,
 }
 
 impl ImgAsset {
@@ -201,11 +211,18 @@ impl ImgAsset {
             ImgAsset::SidewalkTopLeft => "RPGUrbanPack/tile_0008.png",
             ImgAsset::SidewalkTop => "RPGUrbanPack/tile_0009.png",
             ImgAsset::Sidewalk => "RPGUrbanPack/tile_0036.png",
+            ImgAsset::Sign => "RPGUrbanPack/tile_0250.png",
+            ImgAsset::TreeSmallA => "RPGUrbanPack/tile_0291.png",
+            ImgAsset::TreeSmallB => "RPGUrbanPack/tile_0292.png",
+            ImgAsset::SidewalkSpecial => "RPGUrbanPack/tile_0063.png",
+            ImgAsset::RoofTightLeft => "RPGUrbanPack/tile_0138.png",
+            ImgAsset::RoofTightMiddle => "RPGUrbanPack/tile_0139.png",
+            ImgAsset::RoofTightRight => "RPGUrbanPack/tile_0140.png",
         }
     }
 }
 
-pub const WALKABLES: [u32; 16] = [
+pub const WALKABLES: [u32; 17] = [
     ImgAsset::Grass.index(),
     ImgAsset::GrassBorderUpperLeft.index(),
     ImgAsset::GrassBorderUpper.index(),
@@ -222,4 +239,5 @@ pub const WALKABLES: [u32; 16] = [
     ImgAsset::SidewalkLeft.index(),
     ImgAsset::SidewalkTop.index(),
     ImgAsset::SidewalkTopLeft.index(),
+    ImgAsset::SidewalkSpecial.index(),
 ];
