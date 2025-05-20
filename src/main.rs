@@ -27,10 +27,5 @@ fn main() {
         .add_plugins(Popup)
         .add_plugins(Tourists)
         .add_plugins(ElectrumWallet)
-        //.add_plugins(CoordinateIndicator)
-        // .add_plugins(EguiPlugin {
-        //     enable_multipass_for_primary_context: true,
-        // })
-        // .add_plugins(WorldInspectorPlugin::new())
         .run();
 }

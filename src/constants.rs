@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use strum_macros::EnumIter;
 
-pub const Z_TILEMAP: i32 = 0;
+pub const Z_TILEMAP: i32 = 1;
 
 pub const BITCOIN_DIR: &str = "bitcoind";
 pub const MAP_DIR: &str = "map";
@@ -133,7 +133,8 @@ impl ImgAsset {
 
     pub const fn path(self) -> &'static str {
         match self {
-            ImgAsset::Grass => "tiles-test/tile_0000.png",
+            //            ImgAsset::Grass => "tiles-test/tile_0000.png",
+            ImgAsset::Grass => "RPGUrbanPack/tile_0028.png",
             ImgAsset::GrassBorderUpperLeft => "tiles-test/tile_0012.png",
             ImgAsset::GrassBorderUpper => "tiles-test/tile_0013.png",
             ImgAsset::GrassBorderUpperRight => "tiles-test/tile_0014.png",
@@ -212,8 +213,8 @@ impl ImgAsset {
             ImgAsset::SidewalkTop => "RPGUrbanPack/tile_0009.png",
             ImgAsset::Sidewalk => "RPGUrbanPack/tile_0036.png",
             ImgAsset::Sign => "RPGUrbanPack/tile_0250.png",
-            ImgAsset::TreeSmallA => "RPGUrbanPack/tile_0291.png",
-            ImgAsset::TreeSmallB => "RPGUrbanPack/tile_0292.png",
+            ImgAsset::TreeSmallA => "RPGUrbanPack/tile_0291_B.png",
+            ImgAsset::TreeSmallB => "RPGUrbanPack/tile_0292_B.png",
             ImgAsset::SidewalkSpecial => "RPGUrbanPack/tile_0063.png",
             ImgAsset::RoofTightLeft => "RPGUrbanPack/tile_0138.png",
             ImgAsset::RoofTightMiddle => "RPGUrbanPack/tile_0139.png",

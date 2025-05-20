@@ -41,6 +41,8 @@ pub enum PopupMenuTileType {
     Grass,
     Entrypoint,
     DespawnPoint,
+    TreeA,
+    TreeB,
 }
 
 fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -138,6 +140,32 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
     /////////////////
 
+    // Tree A
+    let despawn_label = "Small Tree";
+    let tree_a = ImageNode::new(asset_server.load(ImgAsset::TreeSmallA.path()));
+
+    let my_tile = [[&tree_a]];
+    let (tree_a_tile_node, tree_a_label_node) = matrix_to_tile_nodes(
+        despawn_label,
+        my_tile,
+        PopupMenuTileType::TreeA,
+        &mut commands,
+    );
+    /////////////////
+
+    // Tree B
+    let despawn_label = "Small Tree";
+    let tree_b = ImageNode::new(asset_server.load(ImgAsset::TreeSmallB.path()));
+
+    let my_tile = [[&tree_b]];
+    let (tree_b_tile_node, tree_b_label_node) = matrix_to_tile_nodes(
+        despawn_label,
+        my_tile,
+        PopupMenuTileType::TreeB,
+        &mut commands,
+    );
+    /////////////////
+
     let container = commands
         .spawn(Node {
             flex_direction: FlexDirection::Column,
@@ -150,6 +178,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .add_children(&[grass_tile_node, grass_label_node])
         .add_children(&[entrypoint_tile_node, entrypoint_label_node])
         .add_children(&[despawn_tile_node, despawn_label_node])
+        .add_children(&[tree_a_tile_node, tree_a_label_node])
+        .add_children(&[tree_b_tile_node, tree_b_label_node])
         .id();
 
     commands.entity(popup_root).add_child(container);
@@ -422,6 +452,36 @@ fn button_system(
 
                         commands.spawn((
                             Sprite::from_image(asset_server.load(ImgAsset::Sidewalk.path())),
+                            picked_item,
+                            Transform::from_xyz(50., 50., 1.),
+                            GlobalZIndex(5),
+                        ));
+                    }
+                    PopupMenuTileType::TreeA => {
+                        let picked_item = PopupItem {
+                            alpha_texture_idx: TileTextureIndex(ImgAsset::TreeSmallA.index()),
+                            relative_pos_and_idx: vec![],
+                            spawnpoint: None,
+                            despawnpoint: None,
+                        };
+
+                        commands.spawn((
+                            Sprite::from_image(asset_server.load(ImgAsset::TreeSmallA.path())),
+                            picked_item,
+                            Transform::from_xyz(50., 50., 1.),
+                            GlobalZIndex(5),
+                        ));
+                    }
+                    PopupMenuTileType::TreeB => {
+                        let picked_item = PopupItem {
+                            alpha_texture_idx: TileTextureIndex(ImgAsset::TreeSmallB.index()),
+                            relative_pos_and_idx: vec![],
+                            spawnpoint: None,
+                            despawnpoint: None,
+                        };
+
+                        commands.spawn((
+                            Sprite::from_image(asset_server.load(ImgAsset::TreeSmallB.path())),
                             picked_item,
                             Transform::from_xyz(50., 50., 1.),
                             GlobalZIndex(5),

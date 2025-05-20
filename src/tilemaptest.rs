@@ -179,7 +179,7 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
         TilemapBundle {
             grid_size,
             size: map_size,
-            storage: tile_storage,
+            storage: tile_storage.clone(),
             map_type,
             texture: textures, //TilemapTexture::Single(texture_handle),
             tile_size,
@@ -202,10 +202,6 @@ fn save_tilemap(
     )>,
 ) {
     let test = TouristSpawnPoint {};
-    // info!(
-    //     "JSON of spawnpoint: {}",
-    //     serde_json::to_string(&Some(test)).unwrap()
-    // );
 
     for tilemap_event in tilemap_e.read() {
         match tilemap_event {
