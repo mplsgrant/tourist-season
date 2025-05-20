@@ -94,20 +94,20 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ///////////////
 
     // WALKWAY
-    let horizontal_walkway_label = "Horizontal Walkway";
-    let grass_border_upper = ImageNode::new(asset_server.load(ImgAsset::GrassBorderUpper.path()));
-    let grass_border_lower = ImageNode::new(asset_server.load(ImgAsset::GrassBorderLower.path()));
+    // let horizontal_walkway_label = "Horizontal Walkway";
+    // let grass_border_upper = ImageNode::new(asset_server.load(ImgAsset::GrassBorderUpper.path()));
+    // let grass_border_lower = ImageNode::new(asset_server.load(ImgAsset::GrassBorderLower.path()));
 
-    let my_tile = [
-        [&grass_border_upper, &grass_border_upper],
-        [&grass_border_lower, &grass_border_lower],
-    ];
-    let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = matrix_to_tile_nodes(
-        horizontal_walkway_label,
-        my_tile,
-        PopupMenuTileType::HorizontalPath,
-        &mut commands,
-    );
+    // let my_tile = [
+    //     [&grass_border_upper, &grass_border_upper],
+    //     [&grass_border_lower, &grass_border_lower],
+    // ];
+    // let (horizontal_walkway_tile_node, horizontal_walkway_label_node) = matrix_to_tile_nodes(
+    //     horizontal_walkway_label,
+    //     my_tile,
+    //     PopupMenuTileType::HorizontalPath,
+    //     &mut commands,
+    // );
     /////////////////
 
     // Spawnpoint
@@ -175,9 +175,9 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         //.add_children(&[horizontal_walkway_tile_node, horizontal_walkway_label_node])
         .add_children(&[grass_tile_node, grass_label_node])
-        .add_children(&[building_a_tile_node, building_a_label_node])
         .add_children(&[tree_a_tile_node, tree_a_label_node])
         .add_children(&[tree_b_tile_node, tree_b_label_node])
+        .add_children(&[building_a_tile_node, building_a_label_node])
         .id();
 
     let container_b = commands

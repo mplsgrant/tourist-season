@@ -76,7 +76,7 @@ pub fn startup(mut commands: Commands) {
     commands.spawn(BalanceTimer(Timer::from_seconds(7.0, TimerMode::Once)));
     commands.spawn(SendSatsTimer(Timer::from_seconds(4.0, TimerMode::Once)));
     commands.spawn((
-        Text::new("Balance: 0"),
+        Text::new("Sats: 0"),
         TextFont {
             font_size: 20.0,
             ..Default::default()
@@ -132,13 +132,13 @@ fn read_stream(
     receiver: Res<StreamReceiver>,
 ) {
     for response in receiver.try_iter() {
-        info!("got it");
         let mut player = player_wallet_q.single_mut().unwrap();
         player.wallet.apply_update(response).unwrap();
         let balance = player.wallet.balance();
         let amount = balance.total();
         let sat = amount.to_sat();
-        balance_label_q.single_mut().unwrap().0 = sat.to_formatted_string(&Locale::en);
+        balance_label_q.single_mut().unwrap().0 =
+            format!("Sats: {}", sat.to_formatted_string(&Locale::en));
     }
 }
 
