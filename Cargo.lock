@@ -1769,42 +1769,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bird-view"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bdk_chain 0.22.0",
- "bdk_coin_select",
- "bdk_electrum",
- "bdk_file_store",
- "bdk_wallet",
- "bevy",
- "bevy-inspector-egui",
- "bevy_ecs_tilemap",
- "bip39",
- "bitcoin",
- "clap",
- "crossbeam-channel",
- "directories",
- "eyre",
- "ldtk_rust",
- "log",
- "miniscript",
- "num-format",
- "pathfinding",
- "rand 0.9.0",
- "rand_chacha 0.9.0",
- "reqwest",
- "serde",
- "serde_json",
- "strum 0.27.1",
- "strum_macros 0.27.1",
- "tempfile",
- "thiserror 1.0.69",
- "tiled",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6302,6 +6266,42 @@ dependencies = [
  "serde_spanned",
  "toml_datetime",
  "winnow",
+]
+
+[[package]]
+name = "tourist-season"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bdk_chain 0.22.0",
+ "bdk_coin_select",
+ "bdk_electrum",
+ "bdk_file_store",
+ "bdk_wallet",
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_ecs_tilemap",
+ "bip39",
+ "bitcoin",
+ "clap",
+ "crossbeam-channel",
+ "directories",
+ "eyre",
+ "ldtk_rust",
+ "log",
+ "miniscript",
+ "num-format",
+ "pathfinding",
+ "rand 0.9.0",
+ "rand_chacha 0.9.0",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "strum 0.27.1",
+ "strum_macros 0.27.1",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tiled",
 ]
 
 [[package]]
