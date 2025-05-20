@@ -123,7 +123,11 @@ fn insert_bitcoind(mut commands: Commands) {
     let (user, pass) = read_cookie_auth(&datadir).expect("A user/pass");
     let block_count = wait_for_rpc_ready(&user, &pass).expect("bitcoind is ready");
     if block_count < 50 {
-        mine_blocks(101).expect("Blocks");
+        mine_blocks(
+            101,
+            "bcrt1pkar3gerekw8f9gef9vn9xz0qypytgacp9wa5saelpksdgct33qdqan7c89",
+        )
+        .expect("Blocks");
     }
 
     let (child, _, _) = spawn_electrs().expect("Need to have electrs installed on your machine");

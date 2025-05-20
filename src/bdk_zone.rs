@@ -335,7 +335,7 @@ fn wait_for_file<P: AsRef<Path>>(path: P, timeout: Duration) -> std::io::Result<
     Ok(())
 }
 
-pub fn mine_blocks(count: u32) -> Result<()> {
+pub fn mine_blocks(count: u32, address: &str) -> Result<()> {
     let bitcoin_cli = "bitcoin-cli";
     let config_path = get_config_dir()?.join("bitcoin.conf");
     let datadir = get_data_dir(Some(BITCOIN_DIR.into()))?;
@@ -353,7 +353,7 @@ pub fn mine_blocks(count: u32) -> Result<()> {
         .arg(conf_path_arg)
         .arg("generatetoaddress")
         .arg(count.to_string())
-        .arg("bcrt1pkar3gerekw8f9gef9vn9xz0qypytgacp9wa5saelpksdgct33qdqan7c89")
+        .arg(address)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

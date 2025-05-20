@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{ImgAsset, WALKABLES},
-    electrum_wallet::TouristWallet,
+    electrum_wallet::{PlayerWallet, TouristWallet},
     tilemaptest::{
         tilepos_to_transform, transform_to_tilepos, translation_to_tilepos, usizes_to_transform,
     },
@@ -68,6 +68,7 @@ pub enum TouristStatus {
 #[derive(Component)]
 pub struct SatsToSend {
     pub sats: u64,
+    pub iterations: u32,
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -84,7 +85,10 @@ fn post_startup(
     tilemap_q: Query<&TileStorage>,
     position_q: Query<(&TilePos, &TileTextureIndex)>,
 ) {
-    commands.spawn(SatsToSend { sats: 0 });
+    commands.spawn(SatsToSend {
+        sats: 0,
+        iterations: 0,
+    });
     commands.spawn(SpawnTouristTimer(Timer::from_seconds(2.0, TimerMode::Once)));
 
     let mut grid = Grid::new(128, 128);
@@ -264,7 +268,9 @@ fn move_tourist(
         let is_walkable = if let Some(tile_entity) = storage.checked_get(&tile_pos) {
             if let Ok(texture_idx) = texture_q.get(tile_entity) {
                 if texture_idx.0 == ImgAsset::SidewalkSpecial.index() {
-                    sats_to_send_q.single_mut().unwrap().sats += 4_000;
+                    let mut sats_to_send = sats_to_send_q.single_mut().unwrap();
+                    sats_to_send.sats += 4_000;
+                    sats_to_send.iterations += 1;
                     true
                 } else {
                     false

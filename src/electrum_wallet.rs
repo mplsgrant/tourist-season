@@ -55,6 +55,7 @@ pub fn startup(mut commands: Commands) {
 
 pub fn send_sats(
     time: Res<Time>,
+    mut player_wallet_q: Query<&PlayerWallet>,
     mut sats_to_send_q: Query<&mut SatsToSend>,
     mut send_sats_timer_q: Query<&mut SendSatsTimer>,
     mut wallet_q: Query<&mut TouristWallet>,
@@ -64,6 +65,8 @@ pub fn send_sats(
             //bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg
             let sats_to_send = sats_to_send_q.single_mut().unwrap().sats;
             if sats_to_send > 0 {
+                let base_fee = 4;
+                let more_fee = sats_to_send / 4_000;
                 let mut wallet = wallet_q.single_mut().unwrap();
                 let address = Address::from_str(
                     "bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg",
@@ -72,7 +75,7 @@ pub fn send_sats(
                 .require_network(bitcoin::Network::Regtest)
                 .unwrap();
                 let amount = Amount::from_sat(sats_to_send);
-                let fee = FeeRate::from_sat_per_vb(10).unwrap();
+                let fee = FeeRate::from_sat_per_vb(base_fee + more_fee).unwrap();
                 let mut builder = wallet.wallet.build_tx();
                 builder.fee_rate(fee).add_recipient(address, amount);
                 let mut psbt = builder.finish().unwrap();
