@@ -30,6 +30,34 @@ impl Plugin for Tourists {
     }
 }
 
+#[derive(Resource)]
+pub struct TouristAnimations {
+    front_a: Handle<Image>,
+    front_b: Handle<Image>,
+    front_c: Handle<Image>,
+    back_a: Handle<Image>,
+    back_b: Handle<Image>,
+    back_c: Handle<Image>,
+    right_a: Handle<Image>,
+    right_b: Handle<Image>,
+    right_c: Handle<Image>,
+    left_a: Handle<Image>,
+    left_b: Handle<Image>,
+    left_c: Handle<Image>,
+}
+
+#[derive(Component)]
+struct WalkCycleTimer {
+    timer: Timer,
+    frame_toggle: Abc,
+}
+
+enum Abc {
+    A,
+    B,
+    C,
+}
+
 #[derive(Event)]
 pub enum RedrawGrid {
     Redraw,
@@ -82,6 +110,7 @@ fn post_startup(
     mut commands: Commands,
     tilemap_q: Query<&TileStorage>,
     position_q: Query<(&TilePos, &TileTextureIndex)>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn(SatsToSend {
         sats: 0,
@@ -107,6 +136,23 @@ fn post_startup(
         });
 
     commands.spawn(TouristGrid(grid));
+
+    let tourist_animations = TouristAnimations {
+        front_a: asset_server.load(ImgAsset::GreenTouristWalkingFrontA.path()),
+        front_b: asset_server.load(ImgAsset::GreenTouristStandingFront.path()),
+        front_c: asset_server.load(ImgAsset::GreenTouristWalkingFrontB.path()),
+        back_a: asset_server.load(ImgAsset::GreenTouristWalkingBackA.path()),
+        back_b: asset_server.load(ImgAsset::GreenTouristStandingBack.path()),
+        back_c: asset_server.load(ImgAsset::GreenTouristWalkingBackB.path()),
+        right_a: asset_server.load(ImgAsset::GreenTouristWalkingRightA.path()),
+        right_b: asset_server.load(ImgAsset::GreenTouristStandingRight.path()),
+        right_c: asset_server.load(ImgAsset::GreenTouristWalkingRightB.path()),
+        left_a: asset_server.load(ImgAsset::GreenTouristWalkingLeftA.path()),
+        left_b: asset_server.load(ImgAsset::GreenTouristStandingLeft.path()),
+        left_c: asset_server.load(ImgAsset::GreenTouristWalkingLeftB.path()),
+    };
+
+    commands.insert_resource(tourist_animations);
 }
 
 fn redraw_grid(
@@ -280,6 +326,10 @@ fn tourist_spawner(
                                 },
                                 tourist_initial_transform,
                                 GlobalZIndex(6),
+                                WalkCycleTimer {
+                                    timer: Timer::from_seconds(0.25, TimerMode::Repeating),
+                                    frame_toggle: Abc::A,
+                                },
                             ))
                             .id();
                     } else {
@@ -307,14 +357,21 @@ fn tourist_spawner(
 
 fn move_tourist(
     mut commands: Commands,
-    mut tourist_q: Query<(Entity, &mut Tourist, &mut Transform, &mut Sprite)>,
+    mut tourist_q: Query<(
+        Entity,
+        &mut Tourist,
+        &mut Transform,
+        &mut Sprite,
+        &mut WalkCycleTimer,
+    )>,
     mut recalc_ew: EventWriter<RecalcTouristPath>,
     texture_q: Query<&TileTextureIndex>,
     storage_q: Query<&TileStorage>,
     time: Res<Time>,
     mut sats_to_send_q: Query<&mut SatsToSend>,
+    tourist_sprites: Res<TouristAnimations>,
 ) {
-    for (entity, mut tourist, mut transform, sprite) in tourist_q.iter_mut() {
+    for (entity, mut tourist, mut transform, mut sprite, mut walk_timer) in tourist_q.iter_mut() {
         let tile_pos = translation_to_tilepos(&transform.translation, Vec2::default());
         let storage = storage_q.single().expect("One tile storage");
         let is_walkable = if let Some(tile_entity) = storage.checked_get(&tile_pos) {
@@ -383,8 +440,75 @@ fn move_tourist(
                             }
                         }
                     }
+
+                    walk_timer.timer.tick(time.delta());
+                    if walk_timer.timer.just_finished() {
+                        match walk_timer.frame_toggle {
+                            Abc::A => walk_timer.frame_toggle = Abc::B,
+                            Abc::B => walk_timer.frame_toggle = Abc::C,
+                            Abc::C => walk_timer.frame_toggle = Abc::A,
+                        }
+                        match get_walk_direction(&travel_vector) {
+                            Some(direction) => match direction {
+                                Direction::Up => match walk_timer.frame_toggle {
+                                    Abc::A => sprite.image = tourist_sprites.back_a.clone(),
+                                    Abc::B => sprite.image = tourist_sprites.back_b.clone(),
+                                    Abc::C => sprite.image = tourist_sprites.back_c.clone(),
+                                },
+                                Direction::Down => match walk_timer.frame_toggle {
+                                    Abc::A => sprite.image = tourist_sprites.front_a.clone(),
+                                    Abc::B => sprite.image = tourist_sprites.front_b.clone(),
+                                    Abc::C => sprite.image = tourist_sprites.front_c.clone(),
+                                },
+                                Direction::Left => match walk_timer.frame_toggle {
+                                    Abc::A => sprite.image = tourist_sprites.left_a.clone(),
+                                    Abc::B => sprite.image = tourist_sprites.left_b.clone(),
+                                    Abc::C => sprite.image = tourist_sprites.left_c.clone(),
+                                },
+                                Direction::Right => match walk_timer.frame_toggle {
+                                    Abc::A => sprite.image = tourist_sprites.right_a.clone(),
+                                    Abc::B => sprite.image = tourist_sprites.right_b.clone(),
+                                    Abc::C => sprite.image = tourist_sprites.right_c.clone(),
+                                },
+                            },
+                            None => {
+                                let a = tourist_sprites.front_a.clone();
+                                sprite.image = a;
+                            }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+fn get_walk_direction(travel_vector: &Vec3) -> Option<Direction> {
+    if travel_vector.length_squared() == 0.0 {
+        return None; // Not moving
+    }
+
+    let abs_x = travel_vector.x.abs();
+    let abs_y = travel_vector.y.abs();
+
+    Some(if abs_x > abs_y {
+        if travel_vector.x > 0.0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        }
+    } else {
+        if travel_vector.y > 0.0 {
+            Direction::Up
+        } else {
+            Direction::Down
+        }
+    })
 }
