@@ -1,4 +1,3 @@
-
 use bevy::prelude::*;
 use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
 use pathfinding::{grid::Grid, prelude::astar};
@@ -7,9 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     bdk_zone::mine_blocks,
     constants::{ImgAsset, WALKABLES},
-    tilemaptest::{
-        tilepos_to_transform, translation_to_tilepos, usizes_to_transform,
-    },
+    tilemaptest::{tilepos_to_transform, translation_to_tilepos, usizes_to_transform},
 };
 
 pub struct Tourists;
@@ -268,6 +265,7 @@ fn tourist_spawner(
 }
 
 fn move_tourist(
+    mut commands: Commands,
     mut tourist_q: Query<(Entity, &mut Tourist, &mut Transform, &mut Sprite)>,
     mut recalc_ew: EventWriter<RecalcTouristPath>,
     texture_q: Query<&TileTextureIndex>,
@@ -302,6 +300,9 @@ fn move_tourist(
             }
             TouristStatus::Navigating => {
                 if let Some(usizes) = tourist.path.first() {
+                    if tourist.path.len() <= 1 {
+                        commands.entity(entity).despawn();
+                    }
                     let speed = 100.0;
                     let a_little_buffer = Vec2 { x: 8.0, y: 8.0 }; // let them walk in the middle of the tile, not on edge
                     let next_stop = usizes_to_transform(usizes, a_little_buffer, 6.0);
