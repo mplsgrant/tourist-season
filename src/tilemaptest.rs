@@ -23,7 +23,7 @@ impl Plugin for GameMap {
                 DefaultPlugins
                     .set(WindowPlugin {
                         primary_window: Some(Window {
-                            title: String::from("Accessing Tiles Example"),
+                            title: String::from("Tourist Season"),
                             ..Default::default()
                         }),
                         ..default()
@@ -117,6 +117,8 @@ fn startup_original_tiles(mut commands: Commands, asset_server: Res<AssetServer>
     let map_json_file = get_data_dir(Some(MAP_DIR.into())).unwrap().join(MAP_JSON);
 
     let map: Vec<TileValues> = if let Ok(map) = fs::read_to_string(&map_json_file) {
+        serde_json::from_str(&map).unwrap()
+    } else if let Ok(map) = fs::read_to_string("assets/map.json") {
         serde_json::from_str(&map).unwrap()
     } else {
         // Make a map out of whole cloth

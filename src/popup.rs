@@ -77,7 +77,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     /////////////////
 
     // BUILDING A
-    let building_a_label = "Building A";
+    let building_a_label = "Tourist Trap";
     let red_brick_col_upper = ImageNode::new(asset_server.load(ImgAsset::RedBrickColUpper.path()));
     let red_brick_col_lower = ImageNode::new(asset_server.load(ImgAsset::RedBrickColLower.path()));
 
@@ -166,23 +166,34 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     );
     /////////////////
 
-    let container = commands
+    let container_a = commands
         .spawn(Node {
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             row_gap: Val::Percent(12.0),
             ..default()
         })
-        .add_children(&[horizontal_walkway_tile_node, horizontal_walkway_label_node])
-        .add_children(&[building_a_tile_node, building_a_label_node])
+        //.add_children(&[horizontal_walkway_tile_node, horizontal_walkway_label_node])
         .add_children(&[grass_tile_node, grass_label_node])
-        .add_children(&[entrypoint_tile_node, entrypoint_label_node])
-        .add_children(&[despawn_tile_node, despawn_label_node])
+        .add_children(&[building_a_tile_node, building_a_label_node])
         .add_children(&[tree_a_tile_node, tree_a_label_node])
         .add_children(&[tree_b_tile_node, tree_b_label_node])
         .id();
 
-    commands.entity(popup_root).add_child(container);
+    let container_b = commands
+        .spawn(Node {
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            row_gap: Val::Percent(12.0),
+            ..default()
+        })
+        .add_children(&[entrypoint_tile_node, entrypoint_label_node])
+        .add_children(&[despawn_tile_node, despawn_label_node])
+        .id();
+
+    commands
+        .entity(popup_root)
+        .add_children(&[container_a, container_b]);
 
     let popup_label = commands
         .spawn((
@@ -199,7 +210,7 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|builder| {
             builder.spawn((
-                Text::new("Buildings"),
+                Text::new("Tiles"),
                 TextFont {
                     font_size: 20.0,
                     ..Default::default()
