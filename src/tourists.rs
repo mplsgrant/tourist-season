@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::tiles::{TilePos, TileStorage, TileTextureIndex};
 use pathfinding::{grid::Grid, prelude::astar};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -212,6 +213,7 @@ fn tourist_spawner(
     grid_q: Query<&TouristGrid>,
     despawn_pos_q: Query<&TilePos, With<TouristDespawnPoint>>,
     mut next_round_timer_q: Query<&mut NextRound>,
+    mut current_round_q: ResMut<CurrentRound>,
 ) {
     for mut timer in &mut spawn_tourist_timer {
         if timer.tick(time.delta()).just_finished() {
@@ -224,27 +226,64 @@ fn tourist_spawner(
                     spawnpoint_tile_pos.y as usize,
                 );
                 if let Some(goal_tile_pos) = despawn_pos_q.iter().next() {
-                    let result = my_astar(start, goal_tile_pos, grid);
-                    match result {
-                        Some((path, cost)) => {
-                            let _ = commands
-                                .spawn((
-                                    Sprite::from_image(
-                                        asset_server
-                                            .load(ImgAsset::GreenTouristStandingFront.path()),
-                                    ),
-                                    Tourist {
-                                        status: TouristStatus::Standing,
-                                        path: path[1..].into(), // skip current tile
-                                    },
-                                    tourist_initial_transform,
-                                    GlobalZIndex(6),
-                                ))
-                                .id();
+                    let mut goal_tile_pos = *goal_tile_pos;
+                    goal_tile_pos.x += 1;
+                    goal_tile_pos.y += 1;
+                    let maybe_first_leg = match current_round_q.0 {
+                        0 => None,
+                        1 => my_astar(start, &TilePos { x: 115, y: 90 }, grid).map(|x| x.0),
+                        2 => my_astar(start, &TilePos { x: 90, y: 115 }, grid).map(|x| x.0),
+                        3 => my_astar(start, &TilePos { x: 15, y: 32 }, grid).map(|x| x.0),
+                        4 => my_astar(start, &TilePos { x: 32, y: 15 }, grid).map(|x| x.0),
+                        5 => my_astar(start, &TilePos { x: 19, y: 19 }, grid).map(|x| x.0),
+                        _ => {
+                            let x = rand::rng().random_range(1..=127);
+                            let y = rand::rng().random_range(1..=127);
+                            my_astar(start, &TilePos { x, y }, grid).map(|x| x.0)
                         }
-                        None => {
-                            info!("No path found!");
+                    };
+                    let maybe_path = if let Some(first_leg) = maybe_first_leg {
+                        info!("First leg");
+                        if let Some(last) = first_leg.last() {
+                            let maybe_second_leg = my_astar(*last, &goal_tile_pos, grid);
+                            if let Some(second_leg) = maybe_second_leg {
+                                let second_leg = second_leg.0;
+                                let second_leg = second_leg[1..].to_vec();
+                                let path: Vec<(usize, usize)> =
+                                    first_leg.into_iter().chain(second_leg).collect();
+                                Some(path)
+                            } else {
+                                match my_astar(start, &goal_tile_pos, grid) {
+                                    Some(path_and_cost) => Some(path_and_cost.0),
+                                    None => None,
+                                }
+                            }
+                        } else {
+                            None
                         }
+                    } else {
+                        match my_astar(start, &goal_tile_pos, grid) {
+                            Some(path_and_cost) => Some(path_and_cost.0),
+                            None => None,
+                        }
+                    };
+
+                    if let Some(path) = maybe_path {
+                        let _ = commands
+                            .spawn((
+                                Sprite::from_image(
+                                    asset_server.load(ImgAsset::GreenTouristStandingFront.path()),
+                                ),
+                                Tourist {
+                                    status: TouristStatus::Standing,
+                                    path: path[1..].into(), // skip current tile
+                                },
+                                tourist_initial_transform,
+                                GlobalZIndex(6),
+                            ))
+                            .id();
+                    } else {
+                        info!("No path found!");
                     }
                 }
             }
@@ -259,6 +298,8 @@ fn tourist_spawner(
                 "bcrt1pkar3gerekw8f9gef9vn9xz0qypytgacp9wa5saelpksdgct33qdqan7c89",
             )
             .unwrap();
+            current_round_q.0 += 1;
+            info!("current round: {}", current_round_q.0);
             timer.reset();
         }
     }

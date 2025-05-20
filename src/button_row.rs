@@ -240,33 +240,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 ));
-            parent
-                .spawn((
-                    Button,
-                    Node {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BorderColor(Color::BLACK),
-                    BorderRadius::MAX,
-                    BackgroundColor(NORMAL_BUTTON),
-                    ZIndex(1),
-                    ButtonAction::ActivateElectrumWallet,
-                ))
-                .with_child((
-                    Text::new("Placeholder"),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 33.0,
-                        ..default()
-                    },
-                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                ));
+            // parent
+            //     .spawn((
+            //         Button,
+            //         Node {
+            //             width: Val::Px(150.0),
+            //             height: Val::Px(65.0),
+            //             border: UiRect::all(Val::Px(5.0)),
+            //             // horizontally center child text
+            //             justify_content: JustifyContent::Center,
+            //             // vertically center child text
+            //             align_items: AlignItems::Center,
+            //             ..default()
+            //         },
+            //         BorderColor(Color::BLACK),
+            //         BorderRadius::MAX,
+            //         BackgroundColor(NORMAL_BUTTON),
+            //         ZIndex(1),
+            //         ButtonAction::ActivateElectrumWallet,
+            //     ))
+            //     .with_child((
+            //         Text::new("Placeholder"),
+            //         TextFont {
+            //             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            //             font_size: 33.0,
+            //             ..default()
+            //         },
+            //         TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            //     ));
         });
 }
