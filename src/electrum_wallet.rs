@@ -2,6 +2,7 @@ use std::io::BufRead;
 use std::path::PathBuf;
 use std::process::{Child, Stdio};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use bdk_electrum::{
     BdkElectrumClient,
@@ -10,9 +11,11 @@ use bdk_electrum::{
 use bdk_wallet::KeychainKind;
 use bdk_wallet::Wallet;
 use bdk_wallet::bitcoin::Network;
+use bdk_wallet::chain::spk_client::{SyncRequest, SyncResponse};
 use bdk_wallet::{AddressInfo, SignOptions};
 use bevy::prelude::*;
 use bitcoin::{Address, Amount, FeeRate};
+use crossbeam_channel::{Receiver, Sender, bounded};
 use num_format::{Locale, ToFormattedString};
 
 use crate::bdk_zone::{get_config_dir, get_data_dir};
@@ -24,8 +27,11 @@ pub struct ElectrumWallet;
 
 impl Plugin for ElectrumWallet {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, startup)
-            .add_systems(Update, (send_sats, update_balance));
+        app.add_event::<StreamEvent>()
+            .add_systems(Startup, startup)
+            .add_systems(Update, (send_sats, request_balance))
+            .add_systems(FixedUpdate, read_stream)
+            .insert_resource(Time::<Fixed>::from_seconds(0.5));
     }
 }
 
@@ -37,6 +43,15 @@ const INTERNAL_DESCRIPTOR: &str = "tr(tprv8ZgxMBicQKsPdrjwWCyXqqJ4YqcyG4DmKtjjsR
 
 const EXTERNAL_ABANDON: &str = "tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86h/1h/0h/0/*)#vak0p2pv";
 const INTERNAL_ABANDON: &str = "tr(tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd/86h/1h/0h/1/*)#afnwul35";
+
+#[derive(Resource, Deref)]
+struct StreamReceiver(Receiver<SyncResponse>);
+
+#[derive(Resource, Deref)]
+struct StreamSender(Sender<SyncRequest<(KeychainKind, u32)>>);
+
+#[derive(Event)]
+struct StreamEvent(Box<SyncResponse>);
 
 #[derive(Component, Deref, DerefMut)]
 pub struct SendSatsTimer(Timer);
@@ -68,33 +83,62 @@ pub fn startup(mut commands: Commands) {
         },
         WalletBalanceLabel,
     ));
+
+    let (sender_tx, sender_rx) = bounded::<SyncRequest<(KeychainKind, u32)>>(1);
+    let (electrs_tx, electrs_rx) = bounded::<SyncResponse>(1);
+    std::thread::spawn(move || {
+        loop {
+            match sender_rx.recv() {
+                Ok(request) => {
+                    let client: BdkElectrumClient<Client> = BdkElectrumClient::new(
+                        electrum_client::Client::new("127.0.0.1:60401").unwrap(),
+                    );
+                    let update = client.sync(request, 25, true).unwrap();
+                    electrs_tx.send(update).unwrap();
+                }
+                Err(err) => warn!("Sender recv did not get anything: {}", err),
+            };
+        }
+    });
+
+    commands.insert_resource(StreamReceiver(electrs_rx));
+    commands.insert_resource(StreamSender(sender_tx));
 }
 
-pub fn update_balance(
-    mut player_wallet_q: Query<&mut PlayerWallet>,
-    mut balance_label_q: Query<&mut Text, With<WalletBalanceLabel>>,
+pub fn request_balance(
+    player_wallet_q: Query<&PlayerWallet>,
     mut balance_timer: Query<&mut BalanceTimer>,
     time: Res<Time>,
+    sender: ResMut<StreamSender>,
 ) {
     for mut timer in &mut balance_timer {
         if timer.0.tick(time.delta()).just_finished() {
-            for mut player in &mut player_wallet_q {
-                let client: BdkElectrumClient<Client> = BdkElectrumClient::new(
-                    electrum_client::Client::new("127.0.0.1:60401").unwrap(),
-                );
-
+            for player in player_wallet_q {
                 let request = player.wallet.start_sync_with_revealed_spks().build();
-                let update = client.sync(request, 25, true).unwrap();
-                player.wallet.apply_update(update).unwrap();
 
-                let balance = player.wallet.balance();
-                let amount = balance.total();
-                let sat = amount.to_sat();
-                balance_label_q.single_mut().unwrap().0 = sat.to_formatted_string(&Locale::en);
+                match sender.0.send(request) {
+                    Ok(val) => (),
+                    Err(err) => warn!("Err sending value: {err}"),
+                };
             }
-
             timer.0.reset();
         }
+    }
+}
+
+fn read_stream(
+    mut player_wallet_q: Query<&mut PlayerWallet>,
+    mut balance_label_q: Query<&mut Text, With<WalletBalanceLabel>>,
+    receiver: Res<StreamReceiver>,
+) {
+    for response in receiver.try_iter() {
+        info!("got it");
+        let mut player = player_wallet_q.single_mut().unwrap();
+        player.wallet.apply_update(response).unwrap();
+        let balance = player.wallet.balance();
+        let amount = balance.total();
+        let sat = amount.to_sat();
+        balance_label_q.single_mut().unwrap().0 = sat.to_formatted_string(&Locale::en);
     }
 }
 
@@ -109,12 +153,12 @@ pub fn send_sats(
             //bcrt1p8wpt9v4frpf3tkn0srd97pksgsxc5hs52lafxwru9kgeephvs7rqjeprhg
             let mut wallet = wallet_q.single_mut().unwrap();
 
-            let client: BdkElectrumClient<Client> =
-                BdkElectrumClient::new(electrum_client::Client::new("127.0.0.1:60401").unwrap());
+            // let client: BdkElectrumClient<Client> =
+            //     BdkElectrumClient::new(electrum_client::Client::new("127.0.0.1:60401").unwrap());
 
-            let request = wallet.wallet.start_sync_with_revealed_spks().build();
-            let update = client.sync(request, 25, true).unwrap();
-            wallet.wallet.apply_update(update).unwrap();
+            // let request = wallet.wallet.start_sync_with_revealed_spks().build();
+            // let update = client.sync(request, 25, true).unwrap();
+            // wallet.wallet.apply_update(update).unwrap();
 
             let sats_to_send = sats_to_send_q.single_mut().unwrap().sats;
             if sats_to_send > 0 {

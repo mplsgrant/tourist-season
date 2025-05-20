@@ -1774,6 +1774,7 @@ dependencies = [
  "bip39",
  "bitcoin",
  "clap",
+ "crossbeam-channel",
  "directories",
  "eyre",
  "ldtk_rust",
