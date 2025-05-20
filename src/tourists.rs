@@ -203,7 +203,7 @@ fn path_recalculator(
 ) {
     for event in recalc_er.read() {
         match event {
-            RecalcTouristPath::NewGoal((entity, tile_pos)) => {
+            RecalcTouristPath::NewGoal((entity, goal_tile_pos)) => {
                 if let Ok((entity, mut tourist, transform)) = tourist_q.get_mut(*entity) {
                     if let Ok(grid) = grid_q.single() {
                         let start = translation_to_tilepos(&transform.translation, Vec2::default());
@@ -211,11 +211,32 @@ fn path_recalculator(
                         if !grid.has_vertex(start) {
                             warn!("Start position {:?} not in grid", start);
                         }
-                        if !grid.has_vertex((tile_pos.x as usize, tile_pos.y as usize)) {
-                            warn!("Goal position {:?} not in grid", tile_pos);
+                        if !grid.has_vertex((goal_tile_pos.x as usize, goal_tile_pos.y as usize)) {
+                            warn!("Goal position {:?} not in grid", goal_tile_pos);
                         }
-                        if let Some(result) = my_astar(start, tile_pos, grid) {
-                            tourist.path = result.0;
+
+                        let x = rand::rng().random_range(1..=127);
+                        let y = rand::rng().random_range(1..=127);
+                        let maybe_new_path = my_astar(start, &TilePos { x, y }, grid)
+                            .map(|x| x.0)
+                            .map(|first_leg| {
+                                first_leg
+                                    .last()
+                                    .map(|end_of_first_leg| {
+                                        my_astar(*end_of_first_leg, goal_tile_pos, grid)
+                                    })
+                                    .flatten()
+                                    .map(|(second_leg, _)| {
+                                        let second_leg = second_leg[1..].to_vec();
+                                        first_leg
+                                            .into_iter()
+                                            .chain(second_leg)
+                                            .collect::<Vec<(usize, usize)>>()
+                                    })
+                            });
+
+                        if let Some(Some(path)) = maybe_new_path {
+                            tourist.path = path;
                         } else {
                             warn!("Could not get my_astar result");
                             warn!("Killing entity: {entity:?}");
